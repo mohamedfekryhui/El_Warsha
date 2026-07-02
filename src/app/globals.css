@@ -1,26 +1,22 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* تخصيص لون تحديد النصوص باللون الأخضر في جميع أنحاء الموقع */
+::selection {
+  background-color: #10b981; /* emerald-500 */
+  color: #ffffff;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+::-moz-selection {
+  background-color: #10b981;
+  color: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* إجبار مؤشر الماوس على شكل اليد عند تمريره على أي زر أو قائمة اختيار لتوضيح قابلية النقر */
+button,
+select,
+input[type="button"],
+input[type="submit"] {
+  cursor: pointer;
 }

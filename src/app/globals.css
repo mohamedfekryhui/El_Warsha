@@ -4,8 +4,9 @@
 
 /* تخصيص لون تحديد النصوص باللون الأخضر في جميع أنحاء الموقع */
 ::selection {
-  background-color: #10b981; /* emerald-500 */
-  color: #ffffffa4;
+  background-color: #10b981;
+  /* emerald-500 */
+  color: #ffffff;
 }
 
 ::-moz-selection {
@@ -19,4 +20,49 @@ select,
 input[type="button"],
 input[type="submit"] {
   cursor: pointer;
+}
+
+/* Custom background animations */
+@keyframes float-blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.15);
+  }
+
+  66% {
+    transform: translate(-40px, 40px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: float-blob 25s infinite ease-in-out;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Sub-grid pattern background */
+.bg-grid-pattern {
+  background-size: 50px 50px;
+  background-image:
+    linear-gradient(to right, rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+}
+
+.dark .bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
 }

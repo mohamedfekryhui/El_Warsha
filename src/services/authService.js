@@ -1,4 +1,4 @@
-const API_URL = 'elwarshaback-production.up.railway.app'; // 👈 تأكد من بورت الباك إند بتاعك
+const API_URL = 'https://elwarshaback-production.up.railway.app/api/Auth'; // 👈 تأكد من بورت الباك إند بتاعك
 
 export const loginUser = async (username, password) => {
     try {

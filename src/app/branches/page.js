@@ -20,6 +20,8 @@ import {
   ChevronDown,
   ChevronUp,
   Package,
+  Sparkles,
+  X,
 } from "lucide-react";
 import {
   ResponsiveContainer,

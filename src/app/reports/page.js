@@ -317,41 +317,47 @@ export default function ReportsPage() {
             </button>
           </div>
 
-          {/* كروت التلخيص العلوي للأرصدة (Two Cards Only) */}
+          {/* كروت التلخيص العلوي للأرصدة */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6" dir="rtl">
-            {/* كارت مديونيات الأطباء */}
+
+            {/* كارت مديونيات الأطباء — rose → pink */}
             <motion.div
               variants={itemVariants}
               onClick={() => copyToClipboard(totalDebts.toString())}
-              className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md transition-all"
               title="اضغط لنسخ إجمالي مديونيات الأطباء"
+              className="relative overflow-hidden bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-600 p-6 rounded-3xl shadow-xl shadow-rose-500/30 flex items-center justify-between cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
             >
-              <div>
-                <span className="text-xs font-bold text-gray-400 block mb-1">إجمالي مديونيات الأطباء (لنا طرفهم) 📈</span>
-                <h4 className="text-2xl font-black text-rose-600 dark:text-rose-450">+{totalDebts} ج.م</h4>
-                <p className="text-[10px] text-gray-450 mt-1">مستحقات معلقة ننتظر تحصيلها من الأطباء</p>
+              <div className="absolute -top-6 -left-6 w-28 h-28 rounded-full blur-2xl bg-pink-300/30" />
+              <div className="absolute top-0 left-0 right-0 h-px bg-white/20" />
+              <div className="relative z-10">
+                <span className="text-xs font-bold text-white/75 block mb-1">إجمالي مديونيات الأطباء 📈</span>
+                <h4 className="text-3xl font-black text-white tracking-tight">+{totalDebts} ج.م</h4>
+                <p className="text-[11px] text-white/60 mt-1">مستحقات معلقة ننتظر تحصيلها من الأطباء</p>
               </div>
-              <div className="p-4 bg-rose-50 dark:bg-rose-500/10 text-rose-600 rounded-2xl shrink-0">
+              <div className="relative z-10 p-3.5 bg-white/20 backdrop-blur-sm rounded-2xl border border-white/20 text-white shrink-0">
                 <AlertTriangle size={24} />
               </div>
             </motion.div>
 
-            {/* كارت ديون الورشة لجهات خارجية */}
+            {/* كارت ديون الورشة — violet → indigo */}
             <motion.div
               variants={itemVariants}
               onClick={() => copyToClipboard(totalExternalDebts.toString())}
-              className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md transition-all"
               title="اضغط لنسخ إجمالي ديون الورشة للموردين"
+              className="relative overflow-hidden bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 p-6 rounded-3xl shadow-xl shadow-violet-500/30 flex items-center justify-between cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
             >
-              <div>
-                <span className="text-xs font-bold text-gray-400 block mb-1">إجمالي ديون الورشة (علينا للموردين) 💸</span>
-                <h4 className="text-2xl font-black text-purple-600 dark:text-purple-400">{totalExternalDebts} ج.م</h4>
-                <p className="text-[10px] text-gray-450 mt-1">مستحقات للشركات والموردين والجهات الخارجية</p>
+              <div className="absolute -top-6 -left-6 w-28 h-28 rounded-full blur-2xl bg-purple-300/30" />
+              <div className="absolute top-0 left-0 right-0 h-px bg-white/20" />
+              <div className="relative z-10">
+                <span className="text-xs font-bold text-white/75 block mb-1">إجمالي ديون الورشة (علينا للموردين) 💸</span>
+                <h4 className="text-3xl font-black text-white tracking-tight">{totalExternalDebts} ج.م</h4>
+                <p className="text-[11px] text-white/60 mt-1">مستحقات للشركات والموردين والجهات الخارجية</p>
               </div>
-              <div className="p-4 bg-purple-50 dark:bg-purple-500/10 text-purple-600 rounded-2xl shrink-0">
+              <div className="relative z-10 p-3.5 bg-white/20 backdrop-blur-sm rounded-2xl border border-white/20 text-white shrink-0">
                 <CreditCard size={24} />
               </div>
             </motion.div>
+
           </div>
 
           {/* قسم النماذج والمديونيات جنبًا إلى جنب (50% لكل منهما) */}

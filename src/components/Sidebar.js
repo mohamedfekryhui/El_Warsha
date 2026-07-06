@@ -11,6 +11,8 @@ import {
   LogOut,
   PanelRightClose,
   PanelRightOpen,
+  MessageSquare,
+  Building2,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -23,6 +25,12 @@ export default function Sidebar() {
   const [darkMode, setDarkMode] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { user, currentBranchId, selectBranch, logout } = useAuth();
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const activeBranchName = currentBranchId === "" ? "الرئيسي" : (user?.branches?.find(b => b.id == currentBranchId)?.name || user?.branches?.find(b => b == currentBranchId) || "الفرع الحالي");
   const currentBranch = (currentBranchId !== null && currentBranchId !== undefined) ? activeBranchName : null;
@@ -81,10 +89,29 @@ export default function Sidebar() {
       path: "/maintenance",
     },
     {
+      id: "custody",
+      name: "عهدة الفروع",
+      icon: <MapPin size={20} />,
+      path: "/custody",
+    },
+    // Admin-only
+    ...(user?.role && user.role.toLowerCase().includes("admin") ? [{
+      id: "branches",
+      name: "نظرة الفروع",
+      icon: <Building2 size={20} />,
+      path: "/branches",
+    }] : []),
+    {
       id: "reports",
       name: "التقارير والمالية",
       icon: <FileText size={20} />,
       path: "/reports",
+    },
+    {
+      id: "chat",
+      name: "المساعد الذكي",
+      icon: <MessageSquare size={20} />,
+      path: "/chat",
     },
   ];
 
@@ -217,7 +244,21 @@ export default function Sidebar() {
       </div>
 
       {/* فوتر السايدبار */}
-      <div className="pt-6 border-t border-gray-100 dark:border-gray-800/60 w-full">
+      <div className="pt-6 border-t border-gray-100 dark:border-gray-800/60 w-full space-y-3">
+        {/* Live date */}
+        {!isCollapsed && (
+          <div className="px-2 py-2 bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
+            <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">
+              {now.toLocaleDateString("ar-EG", { weekday: "long" })}
+            </p>
+            <p className="text-sm font-black text-gray-800 dark:text-white mt-0.5">
+              {now.toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" })}
+            </p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+              {now.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        )}
         <div className={`flex ${isCollapsed ? "flex-col gap-4 items-center" : "items-center justify-between"} px-2`}>
           <div className="flex items-center gap-3">
             <div

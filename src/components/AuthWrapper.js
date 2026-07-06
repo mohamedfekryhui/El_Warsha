@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../AuthContext";
 import AuthScreen from "./AuthScreen";
+import ChatWidget from "./ChatWidget";
 
 export default function AuthWrapper({ children }) {
   const { user, currentBranchId, login, selectBranch } = useAuth();
@@ -92,5 +93,10 @@ export default function AuthWrapper({ children }) {
   }
 
   // 3. إذا قام بتسجيل الدخول واختار الفرع بنجاح -> افتح له بقية السيستم والـ Dashboard
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <ChatWidget />
+    </>
+  );
 }

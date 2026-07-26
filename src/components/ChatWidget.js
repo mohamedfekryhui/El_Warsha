@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { API_ENDPOINTS } from "@/config/api";
 import { MessageSquare, X, Send, Bot, Maximize2, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/AuthContext";
 
 export default function ChatWidget() {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
@@ -17,23 +17,23 @@ export default function ChatWidget() {
   ]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [stats, setStats] = useState({ profits: null, doctorsCount: 0, activeOrdersCount: 0 });
+  const { currentBranchId } = useAuth();
+  const [stats, setStats] = useState({ doctorsCount: 0, activeOrdersCount: 0 });
   const messagesEndRef = useRef(null);
 
-  // Fetch real-time dashboard figures to feed the bot answer engine
+  // Fetch real-time dashboard figures to feed the bot answer engine (optional context)
   useEffect(() => {
+    if (!currentBranchId) return;
     const fetchStatsForBot = async () => {
       try {
-        const [profRes, docRes, ordRes] = await Promise.all([
-          fetch(API_ENDPOINTS.profits).catch(() => ({ json: async () => ({ grossRevenue: 0, netProfit: 0 }) })),
-          fetch(API_ENDPOINTS.doctors).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.activeOrders).catch(() => ({ json: async () => [] })),
+        const branchIdStr = String(currentBranchId);
+        const [docRes, ordRes] = await Promise.all([
+          fetch(API_ENDPOINTS.doctorsByBranch(branchIdStr)).catch(() => ({ json: async () => [] })),
+          fetch(API_ENDPOINTS.ordersByBranch(branchIdStr)).catch(() => ({ json: async () => [] })),
         ]);
-        const profits = await profRes.json();
         const docs = await docRes.json();
         const ords = await ordRes.json();
         setStats({
-          profits,
           doctorsCount: Array.isArray(docs) ? docs.length : 0,
           activeOrdersCount: Array.isArray(ords) ? ords.length : 0,
         });
@@ -43,40 +43,12 @@ export default function ChatWidget() {
     };
 
     fetchStatsForBot();
-  }, []);
+  }, [currentBranchId]);
 
   // Auto scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
-
-  const generateBotResponse = (text) => {
-    const cleanText = text.trim().toLowerCase();
-
-    if (cleanText.includes("أرباح") || cleanText.includes("ارباح") || cleanText.includes("أرباح الورشة") || cleanText.includes("فلوس") || cleanText.includes("دخل") || cleanText.includes("ايراد")) {
-      const gross = stats.profits?.grossRevenue || 0;
-      const net = stats.profits?.netProfit || 0;
-      return `إجمالي إيرادات الورشة حالياً هو ${gross} ج.م، وصافي الأرباح بعد المصاريف هو ${net} ج.م. 💰`;
-    }
-
-    if (cleanText.includes("دكتور") || cleanText.includes("أطباء") || cleanText.includes("اطباء") || cleanText.includes("طبيب") || cleanText.includes("عميل") || cleanText.includes("العملاء")) {
-      return `لدينا حالياً ${stats.doctorsCount} طبيب مسجل في سجلات الورشة. يمكنك تصفحهم وإدارتهم بالكامل من قائمة الأطباء. 🩺`;
-    }
-
-    if (cleanText.includes("صيانة") || cleanText.includes("معدة") || cleanText.includes("جهاز") || cleanText.includes("هاندبيس") || cleanText.includes("الرف") || cleanText.includes("رف")) {
-      return `يوجد حالياً ${stats.activeOrdersCount} أجهزة ومعدات أسنان قيد الصيانة على الرف حالياً. يمكنك متابعتها أو تسليمها في صفحة الصيانة. 🛠️`;
-    }
-
-    if (cleanText.includes("مرحبا") || cleanText.includes("أهلاً") || cleanText.includes("اهلاً") || cleanText.includes("سلام") || cleanText.includes("هيلو")) {
-      return "أهلاً بك! أنا مساعد الورشة الذكي. كيف يمكنني مساعدتك اليوم؟ يمكنك الاستفسار عن الأرباح، الدكاترة المسجلين، أو الأجهزة قيد الإصلاح. 🦷🤖";
-    }
-
-    if (cleanText.includes("شحن") || cleanText.includes("توصيل") || cleanText.includes("عنوان")) {
-      return "يتم تحديد عناوين الشحن والعيادات لكل طبيب، ويمكنك قيد مصاريف الشحن وتحديث حسابات الأطباء من صفحة التقارير والمالية. 🚚";
-    }
-
-    return "عذراً، لم أفهم سؤالك بدقة. يمكنك سؤالي عن الأرباح الإجمالية، عدد الأطباء المسجلين، أو حالة الأجهزة المعلقة على الرف! ⚙️";
-  };
 
   const handleSendMessage = async (textToSend) => {
     if (!textToSend.trim()) return;
@@ -91,23 +63,35 @@ export default function ChatWidget() {
     setInputText("");
     setIsTyping(true);
 
-    // Simulate typing delay for a premium AI assistant feel
-    setTimeout(() => {
-      const botReplyText = generateBotResponse(textToSend);
-      const newBotMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: "bot",
-        text: botReplyText,
-      };
-      setMessages((prev) => [...prev, newBotMessage]);
+    try {
+      // Append some contextual stats to the prompt
+      const contextMsg = `[سياق للنظام: عدد الأطباء المسجلين هو ${stats.doctorsCount}، عدد الأجهزة قيد الصيانة هو ${stats.activeOrdersCount}] ${textToSend}`;
+      const res = await fetch(API_ENDPOINTS.aiChat, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: contextMsg })
+      });
+      if (res.ok) {
+        const reply = await res.text();
+        const newBotMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: "bot",
+          text: reply,
+        };
+        setMessages((prev) => [...prev, newBotMessage]);
+      } else {
+        setMessages((prev) => [...prev, { id: Date.now().toString(), sender: "bot", text: "عذراً، حدث خطأ أثناء التواصل مع المساعد الذكي." }]);
+      }
+    } catch (e) {
+      setMessages((prev) => [...prev, { id: Date.now().toString(), sender: "bot", text: "حدث خطأ فني أثناء التواصل مع الخادم." }]);
+    } finally {
       setIsTyping(false);
-    }, 750);
+    }
   };
 
   const suggestionChips = [
-    { text: "أرباح الورشة حالياً 💰", query: "ما هي أرباح الورشة الإجمالية؟" },
-    { text: "كم دكتور مسجل؟ 🩺", query: "كم عدد الدكاترة المسجلين؟" },
-    { text: "الأجهزة قيد الصيانة 🛠️", query: "كم جهاز قيد الصيانة على الرف؟" },
+    { text: "تحليل الأطباء 🩺", query: "اعطني تقرير مختصر عن عدد الدكاترة ونشاطهم." },
+    { text: "الأجهزة قيد الصيانة 🛠️", query: "ما هي حالة الأجهزة الحالية؟" },
   ];
 
   return (

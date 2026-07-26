@@ -14,16 +14,7 @@ import {
   Wrench,
   ChevronLeft
 } from "lucide-react";
-
-const containerVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut", staggerChildren: 0.08 } }
-};
-const itemVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-};
-
+import { containerVariants, itemVariants } from "@/utils/animations";
 export default function ChatPage() {
   const [messages, setMessages] = useState([
     {

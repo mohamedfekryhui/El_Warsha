@@ -22,19 +22,17 @@ import {
   Sparkles
 } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
-
-const containerVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut", staggerChildren: 0.08 } }
-};
-const itemVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-};
+import CustomSelect from "@/components/CustomSelect";
+import { useAuth } from "@/AuthContext";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/Toast";
+import { getStatusStyle } from "@/utils/statusStyles";
+import { containerVariants, itemVariants } from "@/utils/animations";
 
 export default function DoctorDetailPage() {
   const router = useRouter();
   const { id } = useParams();
+  const { currentBranchId } = useAuth();
 
   const [doctor, setDoctor] = useState(null);
   const [report, setReport] = useState(null);
@@ -47,7 +45,7 @@ export default function DoctorDetailPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   // حالة التوست المخصصة لإشعار النسخ
-  const [toastMessage, setToastMessage] = useState("");
+  const { toastMessage, copyToClipboard } = useToast();
 
   // حالات مساعد الذكاء الاصطناعي للأجهزة مع الدردشة الاستبدالية
   const [showAiReport, setShowAiReport] = useState(false);
@@ -65,44 +63,41 @@ export default function DoctorDetailPage() {
   const [isFinChatMode, setIsFinChatMode] = useState(false);
   const [finChatInput, setFinChatInput] = useState("");
 
-  const copyToClipboard = (text) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setToastMessage(`تم النسخ إلى الحافظة: "${text}"`);
-    setTimeout(() => setToastMessage(""), 2000);
-  };
+
 
   // توليد تقرير الذكاء الاصطناعي للأعطال الفنية
-  const handleGenerateAiOrderReport = () => {
+  const handleGenerateAiOrderReport = async () => {
     if (!selectedOrder) return;
     setShowAiReport(true);
     setAiLoading(true);
     setIsOrderChatMode(false);
     
-    // محاكاة كتابة الذكاء الاصطناعي
-    setTimeout(() => {
+    const device = selectedOrder.handpieceName || "توربين أسنان";
+    const notes = selectedOrder.notes || "فحص وتنظيف";
+    const msg = `قم بإنشاء تقرير فحص فني لطلب الصيانة التالي: الجهاز: ${device}، الملاحظات: ${notes}`;
+
+    try {
+      const res = await fetch(API_ENDPOINTS.aiChat, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg })
+      });
+      if (res.ok) {
+        const reply = await res.text();
+        setAiReportText(reply);
+        setInitialAiReportText(reply);
+      } else {
+        setAiReportText("عذراً، حدث خطأ أثناء التواصل مع المساعد الذكي.");
+      }
+    } catch (e) {
+      setAiReportText("حدث خطأ فني.");
+    } finally {
       setAiLoading(false);
-      const device = selectedOrder.handpieceName || "توربين أسنان";
-      const notes = selectedOrder.notes || "فحص وتنظيف";
-      const reportContent = `📋 تقرير الفحص الفني المساعد:
-- الجهاز: ${device}
-- الحالة الحالية: ${selectedOrder.status || "تحت الصيانة"}
-- العطل والملاحظات: ${notes}
-
-🛠️ التشخيص المقترح من المساعد الذكي:
-1. يظهر تآكل نسبي في الأجزاء الدوارة (Bearings/Turbine Rotor) نتيجة حرارة التعقيم المستمر.
-2. ضغط التشغيل المثالي الموصى به للهواء: 2.1 - 2.3 بار.
-
-📢 نصائح لتسليمها للطبيب عند التسليم:
-• يُنصح بتزييت مجاري الدوران مرتين يومياً بالزيت الأصلي.
-• تفادي التعقيم الحراري قبل التنظيف اليدوي بالهواء المضغوط لضمان عمر أطول للبيلية.`;
-      setAiReportText(reportContent);
-      setInitialAiReportText(reportContent);
-    }, 1000);
+    }
   };
 
-  // إرسال رسالة في شات الأعطال الفنية (استبدال النص السابق بالجديد)
-  const handleSendOrderChat = (e) => {
+  // إرسال رسالة في شات الأعطال الفنية
+  const handleSendOrderChat = async (e) => {
     e.preventDefault();
     if (!orderChatInput.trim()) return;
 
@@ -110,62 +105,60 @@ export default function DoctorDetailPage() {
     setOrderChatInput("");
     setAiLoading(true);
 
-    setTimeout(() => {
-      setAiLoading(false);
-      let reply = "";
-      const textLower = userText.toLowerCase();
-      if (textLower.includes("زيت") || textLower.includes("تزييت") || textLower.includes("تشحيم")) {
-        reply = `⚙️ إرشادات التزييت الإضافية:
-• يُنصح باستخدام زيت كافو (KaVo Spray) أو زيت ذو لزوجة منخفضة جداً.
-• قم ببخ الزيت في فتحة دخول الهواء الرئيسية (عادةً الفتحة الأكبر في الهيد) لمدة ثانيتين حتى يخرج الزيت نظيفاً من الهيد.`;
-      } else if (textLower.includes("حرارة") || textLower.includes("تعقيم")) {
-        reply = `🌡️ إرشادات التعقيم الآمن:
-• أقصى درجة حرارة للتعقيم هي 135 درجة مئوية.
-• يجب تزييت القبضة مباشرة بعد التعقيم لضمان عدم تلف المحامل الدوارة (Bearings) نتيجة الجفاف.`;
-      } else if (textLower.includes("قطع") || textLower.includes("سعر") || textLower.includes("تغيير")) {
-        reply = `🛠️ تفاصيل قطع الغيار الموصى بها:
-• عند استبدال الروتات، يجب التأكد من تطابق المقاس (Mini Head أو Standard Head).
-• نستخدم بليات سيراميك يابانية لضمان تقليل الضوضاء وزيادة كفاءة القطع.`;
+    try {
+      const res = await fetch(API_ENDPOINTS.aiChat, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText })
+      });
+      if (res.ok) {
+        const reply = await res.text();
+        setAiReportText(reply);
       } else {
-        reply = `💡 رد المساعد الذكي حول الاستفسار ("${userText}"):
-ننصح بالتأكد من جودة ضغط الهواء المورد من الكومبريسور وعدم تخطي 2.5 بار لحماية البيلية الجديدة من التآكل المبكر.`;
+        setAiReportText("عذراً، حدث خطأ أثناء التواصل.");
       }
-      setAiReportText(reply);
-    }, 1000);
+    } catch (e) {
+      setAiReportText("حدث خطأ فني.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   // توليد تقرير التحليل المالي الذكي للمعاملات
-  const handleAnalyzeTransactions = () => {
+  const handleAnalyzeTransactions = async () => {
     if (!doctor) return;
     setShowFinancialAiReport(true);
     setFinAiLoading(true);
     setIsFinChatMode(false);
     
-    setTimeout(() => {
-      setFinAiLoading(false);
-      const req = report ? report.totalRequired : 0;
-      const paid = report ? report.totalPaid : 0;
-      const rem = report ? report.remainingBalance : 0;
-      const pct = req > 0 ? Math.round((paid / req) * 100) : 100;
-      
-      const analysis = `📊 تقرير التحليل المالي الذكي لمعاملات الطبيب:
-- العميل: ${doctor.name}
-- إجمالي قيمة الصيانات: ${req} ج.م
-- إجمالي المدفوعات الواردة: ${paid} ج.م
-- نسبة سداد المستحقات: ${pct}%
-- المديونية المتبقية: ${rem} ج.م
+    const req = report ? report.totalRequired : 0;
+    const paid = report ? report.totalPaid : 0;
+    const rem = report ? report.remainingBalance : 0;
 
-💡 الملاحظات والتوصيات المالية:
-1. ${rem > 0 ? `العميل لديه رصيد مستحق بقيمة (${rem} ج.م). نسبة التزام السداد جيدة جداً وتصل إلى (${pct}%)، ويُنصح بطلب تسوية للمتبقي ودياً عند تسليم الأجهزة القادمة.` : "خالص الحساب تماماً ونسبة التزام السداد 100%."}
-2. يمثل بند قطع الغيار النسبة الأكبر من المصاريف مقارنة بتكلفة الشحن.
-3. التوصية الإدارية: العميل نشط وملتزم بالدفع، نقترح تقديم خصم تشجيعي 5% على الصيانة القادمة لتعزيز الولاء.`;
-      setFinAiReportText(analysis);
-      setInitialFinReportText(analysis);
-    }, 1200);
+    const msg = `قم بإنشاء تحليل مالي لطبيب ${doctor.name}، إجمالي المطلوب ${req} ج.م والمدفوع ${paid} ج.م والمتبقي ${rem} ج.م. أعطني توصيات مالية مختصرة.`;
+
+    try {
+      const res = await fetch(API_ENDPOINTS.aiChat, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg })
+      });
+      if (res.ok) {
+        const reply = await res.text();
+        setFinAiReportText(reply);
+        setInitialFinReportText(reply);
+      } else {
+        setFinAiReportText("عذراً، حدث خطأ أثناء التواصل.");
+      }
+    } catch (e) {
+      setFinAiReportText("حدث خطأ فني.");
+    } finally {
+      setFinAiLoading(false);
+    }
   };
 
-  // إرسال رسالة في شات المعاملات المالية (استبدال النص السابق بالجديد)
-  const handleSendFinChat = (e) => {
+  // إرسال رسالة في شات المعاملات المالية
+  const handleSendFinChat = async (e) => {
     e.preventDefault();
     if (!finChatInput.trim()) return;
 
@@ -173,92 +166,69 @@ export default function DoctorDetailPage() {
     setFinChatInput("");
     setFinAiLoading(true);
 
-    setTimeout(() => {
-      setFinAiLoading(false);
-      let reply = "";
-      const textLower = userText.toLowerCase();
-      if (textLower.includes("خصم") || textLower.includes("تخفيض")) {
-        reply = `💸 اقتراح الخصم المناسب للعميل:
-• نظراً لالتزام العميل بالسداد بنسبة (${report ? Math.round((report.totalPaid / report.totalRequired) * 100) : 70}%)، نقترح منح خصم إضافي بقيمة 50 ج.م على الشحنة القادمة، أو تثبيت نسبة خصم 5% على أجور اليد الفنية.`;
-      } else if (textLower.includes("جدولة") || textLower.includes("تقسيط") || textLower.includes("سداد")) {
-        reply = `📅 خطة الجدولة المقترحة للمديونية:
-• المديونية المتبقية حالياً هي (${report ? report.remainingBalance : 500} ج.م).
-• يمكن جدولة المبلغ على دفعتين متساويتين (بواقع 250 ج.م مع كل جهاز صيانة جديد يتم استلامه).`;
+    try {
+      const res = await fetch(API_ENDPOINTS.aiChat, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText })
+      });
+      if (res.ok) {
+        const reply = await res.text();
+        setFinAiReportText(reply);
       } else {
-        reply = `📊 تحليل إضافي لمعاملات الطبيب ${doctor?.name}:
-العميل يتميز بمعدل دوران أجهزة متوسط (يتعامل معنا بانتظام). لزيادة المعاملات، يُنصح بتفعيل نظام "الاستلام المجاني للأجهزة" للعيادة لرفع حجم الطلبات.`;
+        setFinAiReportText("عذراً، حدث خطأ أثناء التواصل.");
       }
-      setFinAiReportText(reply);
-    }, 1000);
+    } catch (e) {
+      setFinAiReportText("حدث خطأ فني.");
+    } finally {
+      setFinAiLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !currentBranchId) return;
 
     const fetchDoctorData = async () => {
       try {
         setLoading(true);
-        // Fetch doctors, accounts, and orders in parallel
-        const [docsRes, repRes, activeOrdersRes, allOrdersRes] = await Promise.all([
-          fetch(API_ENDPOINTS.doctors).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.doctorsAccounts).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.activeOrders).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.createOrder).catch(() => ({ json: async () => [] })) // GET list of all orders
+        // Fetch doctor by id, financial records, and orders in parallel
+        const docIdNum = parseInt(id);
+        const branchIdStr = String(currentBranchId);
+        
+        const [docRes, repRes, allOrdersRes] = await Promise.all([
+          fetch(API_ENDPOINTS.doctorById(branchIdStr, docIdNum)).catch(() => ({ json: async () => null })),
+          fetch(API_ENDPOINTS.financialRecords).catch(() => ({ json: async () => [] })),
+          fetch(API_ENDPOINTS.ordersByBranch(branchIdStr)).catch(() => ({ json: async () => [] })) // GET list of all orders
         ]);
 
-        const doctorsListRaw = await docsRes.json();
+        const docData = await docRes.json();
         const reportsListRaw = await repRes.json();
-        const activeOrdersRaw = await activeOrdersRes.json();
         const allOrdersRaw = await allOrdersRes.json();
 
-        // بيانات تجريبية احتياطية (Mock Data Fallbacks) للتأكد من التفاعل الكامل
-        const doctorsList = Array.isArray(doctorsListRaw) && doctorsListRaw.length > 0
-          ? doctorsListRaw
-          : [
-              { id: 1, name: "د. محمد علي", phone: "01012345678", address1: "القاهرة، مدينة نصر", address2: "الجيزة، الدقي" },
-              { id: 2, name: "د. أحمد سعيد", phone: "01234567890", address1: "الإسكندرية، سموحة", address2: "" }
-            ];
-
-        const reportsList = Array.isArray(reportsListRaw) && reportsListRaw.length > 0
-          ? reportsListRaw
-          : [
-              { id: 1, doctorId: 1, totalRequired: 1500, totalPaid: 1000, remainingBalance: 500, totalPartsCost: 1200, totalShipping: 300 },
-              { id: 2, doctorId: 2, totalRequired: 800, totalPaid: 800, remainingBalance: 0, totalPartsCost: 700, totalShipping: 100 }
-            ];
-
-        const activeOrdersListMock = Array.isArray(activeOrdersRaw) && activeOrdersRaw.length > 0
-          ? activeOrdersRaw
-          : [
-              { id: 101, doctorId: 1, doctorName: "د. محمد علي", handpieceName: "توربين عالية السرعة NSK", serialNumber: "NSK-9982", status: "تحت الصيانة", notes: "تغيير بيلية وتنظيف", priceUs: 150, priceDoc: 250 },
-              { id: 102, doctorId: 1, doctorName: "د. محمد علي", handpieceName: "كونترا كافو", serialNumber: "KAVO-8821", status: "تمت الصيانة وتحت الشحن", notes: "تغيير روتور بالكامل", priceUs: 400, priceDoc: 600, shipping: true },
-              { id: 103, doctorId: 2, doctorName: "د. أحمد سعيد", handpieceName: "هاندبيس جراحة", serialNumber: "SURG-1102", status: "تحت الصيانة", notes: "فحص الهيد", priceUs: 200, priceDoc: 300 }
-            ];
-
-        const allOrdersListMock = Array.isArray(allOrdersRaw) && allOrdersRaw.length > 0
-          ? allOrdersRaw
-          : [
-              ...activeOrdersListMock,
-              { id: 95, doctorId: 1, doctorName: "د. محمد علي", handpieceName: "تنظيف وتشحيم هاندبيس", serialNumber: "NSK-1111", status: "تم التوصيل", notes: "تم التسليم للعيادة مع المندوب", priceUs: 50, priceDoc: 100 }
-            ];
-
-        // 1. Find the specific doctor
-        const docIdNum = parseInt(id);
-        const docObj = doctorsList.find((d) => d.id === docIdNum);
-        setDoctor(docObj);
-
-        // 2. Find financial report
-        const repObj = reportsList.find((r) => r.doctorId === docIdNum);
-        setReport(repObj);
-
-        // 3. Filter orders associated with this doctor (by ID or doctorName)
-        let mergedOrders = [];
-        const sourceOrders = allOrdersListMock;
-        
-        if (Array.isArray(sourceOrders)) {
-          mergedOrders = sourceOrders.filter(
-            (o) => o.doctorId === docIdNum || (docObj && o.doctorName === docObj.name)
-          );
+        if (docData) {
+          setDoctor(docData);
+        } else {
+          setDoctor(null);
         }
+
+        // 2. Find financial report (if supported)
+        const reportsList = Array.isArray(reportsListRaw) ? reportsListRaw : [];
+        const repObj = reportsList.find((r) => r.doctorId === docIdNum);
+        setReport(repObj || {
+          totalRequired: 0,
+          totalPaid: 0,
+          remainingBalance: 0,
+          totalPartsCost: 0,
+          totalShipping: 0
+        });
+
+        // 3. Filter orders associated with this doctor (by ID)
+        let mergedOrders = [];
+        const sourceOrders = Array.isArray(allOrdersRaw) ? allOrdersRaw : [];
+        
+        mergedOrders = sourceOrders.filter(
+          (o) => o.doctorId === docIdNum
+        );
         setOrders(mergedOrders);
 
       } catch (error) {
@@ -269,7 +239,7 @@ export default function DoctorDetailPage() {
     };
 
     fetchDoctorData();
-  }, [id]);
+  }, [id, currentBranchId]);
 
   // تحديث حالة الصيانة من صفحة الطبيب
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
@@ -290,21 +260,6 @@ export default function DoctorDetailPage() {
       }
     } catch (err) {
       console.warn("Failed to fetch backend endpoint, fallback to local status update:", err);
-    }
-  };
-
-  // ستايلات ملونة لحالة الطلب لتعزيز الـ UX
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "تحت الصيانة":
-        return "bg-amber-50 text-amber-700 border-amber-250 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20";
-      case "تمت الصيانة وتحت الشحن":
-        return "bg-blue-50 text-blue-700 border-blue-250 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20";
-      case "تم التوصيل":
-      case "تم التسليم":
-        return "bg-emerald-50 text-emerald-755 border-emerald-255 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20";
-      default:
-        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-500/10 dark:text-gray-400 dark:border-gray-500/20";
     }
   };
 
@@ -641,16 +596,16 @@ export default function DoctorDetailPage() {
                               )}
                             </td>
                             <td className="py-4 text-center">
-                              <select
+                              <CustomSelect
                                 value={o.status || "تحت الصيانة"}
-                                onClick={(e) => e.stopPropagation()} // منع فتح المودال عند تغيير الاختيار
-                                onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
-                                className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border transition-all focus:outline-none cursor-pointer outline-none ${getStatusBadge(o.status || "تحت الصيانة")}`}
-                              >
-                                <option value="تحت الصيانة" className="bg-white dark:bg-[#1E293B] text-amber-700 dark:text-amber-400 font-bold">🛠️ تحت الصيانة</option>
-                                <option value="تمت الصيانة وتحت الشحن" className="bg-white dark:bg-[#1E293B] text-blue-700 dark:text-blue-400 font-bold">🚚 تمت الصيانة وتحت شحن</option>
-                                <option value="تم التوصيل" className="bg-white dark:bg-[#1E293B] text-emerald-700 dark:text-emerald-455 font-bold">✅ تم التوصيل</option>
-                              </select>
+                                onChange={(val) => handleUpdateOrderStatus(o.id, val)}
+                                options={[
+                                  { value: "تحت الصيانة", label: "🛠️ تحت الصيانة", activeClassName: "bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400" },
+                                  { value: "تمت الصيانة وتحت الشحن", label: "🚚 تمت الصيانة وتحت شحن", activeClassName: "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400" },
+                                  { value: "تم التوصيل", label: "✅ تم التوصيل", activeClassName: "bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" }
+                                ]}
+                                className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border transition-all focus:outline-none cursor-pointer outline-none min-w-[130px] ${getStatusStyle(o.status || "تحت الصيانة")}`}
+                              />
                             </td>
                           </tr>
                         ))}
@@ -729,16 +684,16 @@ export default function DoctorDetailPage() {
                               )}
                             </td>
                             <td className="py-4 text-center font-bold">
-                              <select
+                              <CustomSelect
                                 value={o.status || "تم التوصيل"}
-                                onClick={(e) => e.stopPropagation()} // منع فتح المودال عند تغيير الاختيار
-                                onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
-                                className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border transition-all focus:outline-none cursor-pointer outline-none ${getStatusBadge(o.status || "تم التوصيل")}`}
-                              >
-                                <option value="تحت الصيانة" className="bg-white dark:bg-[#1E293B] text-amber-700 dark:text-amber-400 font-bold">🛠️ تحت الصيانة</option>
-                                <option value="تمت الصيانة وتحت الشحن" className="bg-white dark:bg-[#1E293B] text-blue-700 dark:text-blue-400 font-bold">🚚 تمت الصيانة وتحت شحن</option>
-                                <option value="تم التوصيل" className="bg-white dark:bg-[#1E293B] text-emerald-700 dark:text-emerald-455 font-bold">✅ تم التوصيل</option>
-                              </select>
+                                onChange={(val) => handleUpdateOrderStatus(o.id, val)}
+                                options={[
+                                  { value: "تحت الصيانة", label: "🛠️ تحت الصيانة", activeClassName: "bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400" },
+                                  { value: "تمت الصيانة وتحت الشحن", label: "🚚 تمت الصيانة وتحت شحن", activeClassName: "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400" },
+                                  { value: "تم التوصيل", label: "✅ تم التوصيل", activeClassName: "bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" }
+                                ]}
+                                className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border transition-all focus:outline-none cursor-pointer outline-none min-w-[130px] ${getStatusStyle(o.status || "تم التوصيل")}`}
+                              />
                             </td>
                           </tr>
                         ))}
@@ -815,15 +770,16 @@ export default function DoctorDetailPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-gray-50 dark:bg-gray-900/30 rounded-2xl border border-gray-100/50 dark:border-gray-800/30">
                     <span className="block text-[10px] font-bold text-gray-400 mb-1.5">الحالة الحالية (يمكنك تعديلها)</span>
-                    <select
+                    <CustomSelect
                       value={selectedOrder.status || "تحت الصيانة"}
-                      onChange={(e) => handleUpdateOrderStatus(selectedOrder.id, e.target.value)}
-                      className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border transition-all focus:outline-none cursor-pointer outline-none w-full ${getStatusBadge(selectedOrder.status || "تحت الصيانة")}`}
-                    >
-                      <option value="تحت الصيانة" className="bg-white dark:bg-[#1E293B] text-amber-700 dark:text-amber-400 font-bold">🛠️ تحت الصيانة</option>
-                      <option value="تمت الصيانة وتحت الشحن" className="bg-white dark:bg-[#1E293B] text-blue-700 dark:text-blue-400 font-bold">🚚 تمت الصيانة وتحت شحن</option>
-                      <option value="تم التوصيل" className="bg-white dark:bg-[#1E293B] text-emerald-700 dark:text-emerald-455 font-bold">✅ تم التوصيل</option>
-                    </select>
+                      onChange={(val) => handleUpdateOrderStatus(selectedOrder.id, val)}
+                      options={[
+                        { value: "تحت الصيانة", label: "🛠️ تحت الصيانة", activeClassName: "bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400" },
+                        { value: "تمت الصيانة وتحت الشحن", label: "🚚 تمت الصيانة وتحت شحن", activeClassName: "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400" },
+                        { value: "تم التوصيل", label: "✅ تم التوصيل", activeClassName: "bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400" }
+                      ]}
+                      className={`text-[10px] font-extrabold px-3 py-1.5 rounded-full border transition-all focus:outline-none cursor-pointer outline-none w-full ${getStatusStyle(selectedOrder.status || "تحت الصيانة")}`}
+                    />
                   </div>
                   <div
                     className="p-4 bg-gray-50 dark:bg-gray-900/30 rounded-2xl border border-gray-100/50 dark:border-gray-800/30 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
@@ -1151,19 +1107,7 @@ export default function DoctorDetailPage() {
       </AnimatePresence>
 
       {/* توست الإشعار العائم للنسخ الناجح */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9, x: "-50%" }}
-            animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-            exit={{ opacity: 0, y: 20, scale: 0.9, x: "-50%" }}
-            className="fixed bottom-8 left-1/2 transform bg-slate-900/95 text-white dark:bg-white dark:text-slate-900 px-6 py-3 rounded-2xl shadow-2xl font-bold text-xs z-50 flex items-center gap-2 border border-slate-800 dark:border-slate-100"
-          >
-            <span>📋</span>
-            <span>{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Toast message={toastMessage} />
     </div>
   );
 }

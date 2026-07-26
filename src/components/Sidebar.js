@@ -74,36 +74,36 @@ export default function Sidebar() {
       id: "dashboard",
       name: "نظرة عامة",
       icon: <LayoutDashboard size={20} />,
-      path: "/",
+      path: "/dashboard",
     },
     {
       id: "doctors",
-      name: "الأطباء والعيادات",
+      name: "الدكاترة",
       icon: <Users size={20} />,
       path: "/doctors",
     },
     {
       id: "maintenance",
-      name: "الصيانة والرف",
+      name: "الصيانة",
       icon: <Wrench size={20} />,
       path: "/maintenance",
     },
     {
       id: "custody",
-      name: "عهدة الفروع",
+      name: "العهدة",
       icon: <MapPin size={20} />,
       path: "/custody",
     },
     // Admin-only
     ...(user?.role && user.role.toLowerCase().includes("admin") ? [{
       id: "branches",
-      name: "نظرة الفروع",
+      name: "نظرة على الفروع",
       icon: <Building2 size={20} />,
       path: "/branches",
     }] : []),
     {
       id: "reports",
-      name: "التقارير والمالية",
+      name: "الحسابات",
       icon: <FileText size={20} />,
       path: "/reports",
     },
@@ -117,9 +117,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`${
-        isCollapsed ? "w-20 p-4 items-center" : "w-72 p-6"
-      } bg-white dark:bg-[#1E293B] border-l border-gray-100 dark:border-gray-800/60 flex flex-col justify-between h-screen sticky top-0 transition-all duration-300 shadow-[0_0_20px_rgba(0,0,0,0.02)] dark:shadow-none z-20`}
+      className={`${isCollapsed ? "w-20 p-4 items-center" : "w-72 p-6"
+        } bg-white dark:bg-[#1E293B] border-l border-gray-100 dark:border-gray-800/60 flex flex-col justify-between h-screen sticky top-0 transition-all duration-300 shadow-[0_0_20px_rgba(0,0,0,0.02)] dark:shadow-none z-20`}
     >
       <div>
         {/* هيدر السايدبار وزرار الثيم وزرار التصغير */}
@@ -217,13 +216,11 @@ export default function Sidebar() {
               <Link
                 key={item.id}
                 href={item.path}
-                className={`w-full flex items-center ${
-                  isCollapsed ? "justify-center p-3.5" : "justify-start gap-4 px-4 py-3.5"
-                } text-sm font-bold rounded-2xl transition-all duration-300 ${
-                  isActive
+                className={`w-full flex items-center ${isCollapsed ? "justify-center p-3.5" : "justify-start gap-4 px-4 py-3.5"
+                  } text-sm font-bold rounded-2xl transition-all duration-300 ${isActive
                     ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 shadow-sm"
                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-200 hover:-translate-x-1"
-                }`}
+                  }`}
                 title={isCollapsed ? item.name : undefined}
               >
                 {/* 1. منع الأيقونة من الانضغاط */}

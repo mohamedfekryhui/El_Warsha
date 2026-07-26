@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { API_ENDPOINTS } from "@/config/api";
+import { useAuth } from "@/AuthContext";
 
 export function useDoctorsData() {
+  const { currentBranchId } = useAuth();
   const [doctors, setDoctors] = useState([]);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,26 +15,18 @@ export function useDoctorsData() {
   const [docAddr2, setDocAddr2] = useState("");
 
   const fetchDoctors = async () => {
+    if (!currentBranchId) return;
     try {
+      const branchIdStr = String(currentBranchId);
       const [res, repRes] = await Promise.all([
-        fetch(API_ENDPOINTS.doctors).catch(() => ({ json: async () => [] })),
-        fetch(API_ENDPOINTS.doctorsAccounts).catch(() => ({ json: async () => [] })),
+        fetch(API_ENDPOINTS.doctorsByBranch(branchIdStr)).catch(() => ({ json: async () => [] })),
+        fetch(API_ENDPOINTS.financialRecords).catch(() => ({ json: async () => [] })),
       ]);
-      let data = await res.json();
-      let repData = await repRes.json();
+      const data = await res.json();
+      const repData = await repRes.json();
 
-      // Mock fallback: if no doctors, supply at least 1 mock doctor
-      if (!Array.isArray(data) || data.length === 0) {
-        data = [{ id: 1, name: "د. محمد علي", phone: "01012345678", address1: "القاهرة، مدينة نصر", address2: "الجيزة، الدقي" }];
-      }
-      
-      // Mock fallback: if no accounts/reports, supply matching report
-      if (!Array.isArray(repData) || repData.length === 0) {
-        repData = [{ doctorId: 1, doctorName: "د. محمد علي", totalPartsCost: 350, totalShipping: 50, totalRequired: 400, totalPaid: 200, remainingBalance: 200 }];
-      }
-
-      setDoctors(data);
-      setReports(repData);
+      setDoctors(Array.isArray(data) ? data : []);
+      setReports(Array.isArray(repData) ? repData : []);
     } catch (error) {
       console.error("خطأ في جلب بيانات الدكاترة والتقارير:", error);
     } finally {
@@ -42,7 +36,7 @@ export function useDoctorsData() {
 
   useEffect(() => {
     fetchDoctors();
-  }, []);
+  }, [currentBranchId]);
 
   const handleAddDoctor = async (e) => {
     e.preventDefault();

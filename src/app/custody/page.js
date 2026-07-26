@@ -4,6 +4,8 @@ import Sidebar from "@/components/Sidebar";
 import { useAuth } from "@/AuthContext";
 import { MapPin, Plus, Package, Trash2, ShieldCheck, AlertCircle, FileSpreadsheet, Sparkles, X } from "lucide-react";
 import { motion } from "framer-motion";
+import CustomSelect from "@/components/CustomSelect";
+import { API_ENDPOINTS } from "@/config/api";
 import {
   BarChart,
   Bar,
@@ -16,15 +18,7 @@ import {
   Pie,
   Cell
 } from "recharts";
-
-const containerVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut", staggerChildren: 0.08 } }
-};
-const itemVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-};
+import { containerVariants, itemVariants } from "@/utils/animations";
 
 const COLORS = ["#6366F1", "#14B8A6", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
 
@@ -54,32 +48,32 @@ export default function CustodyPage() {
     }
   }, [currentBranchId, branches]);
 
-  // قائمة العهود المخزنة محلياً
-  const [custodyData, setCustodyData] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("elwarsha_custody_data");
-      if (stored) {
-        try {
-          return JSON.parse(stored);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
-    return [
-      { id: 1, branchId: "الرئيسي", name: "ميكروسكوب صيانة هاندبيس", price: 25000, dateAdded: "2026-07-01" },
-      { id: 2, branchId: "الرئيسي", name: "جهاز اختبار ضغط الهواء", price: 4500, dateAdded: "2026-07-02" },
-      { id: 3, branchId: "الرئيسي", name: "طقم مفكات ألواح دقيقة", price: 800, dateAdded: "2026-07-03" },
-      { id: 4, branchId: "1", name: "كومبريسور صامت 50 لتر", price: 12000, dateAdded: "2026-07-01" },
-      { id: 5, branchId: "1", name: "جهاز تنظيف التراسونيك", price: 3500, dateAdded: "2026-07-02" },
-      { id: 6, branchId: "1", name: "جهاز تزييت هاندبيس أوتوماتيك", price: 9000, dateAdded: "2026-07-03" }
-    ];
-  });
+  // قائمة العهود
+  const [custodyData, setCustodyData] = useState([]);
+  const [loadingCustody, setLoadingCustody] = useState(false);
 
-  // مزامنة البيانات مع localStorage
+  // جلب البيانات من الخادم
   useEffect(() => {
-    localStorage.setItem("elwarsha_custody_data", JSON.stringify(custodyData));
-  }, [custodyData]);
+    const fetchCustody = async () => {
+      if (!selectedBranch) return;
+      try {
+        setLoadingCustody(true);
+        const res = await fetch(API_ENDPOINTS.custodiesByBranch(selectedBranch));
+        if (res.ok) {
+          const data = await res.json();
+          setCustodyData(Array.isArray(data) ? data : []);
+        } else {
+          setCustodyData([]);
+        }
+      } catch (e) {
+        console.error("Error fetching custody data:", e);
+        setCustodyData([]);
+      } finally {
+        setLoadingCustody(false);
+      }
+    };
+    fetchCustody();
+  }, [selectedBranch]);
 
   // حقول إضافة عهدة جديدة (للأدمن فقط)
   const [newToolName, setNewToolName] = useState("");
@@ -88,33 +82,35 @@ export default function CustodyPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState("");
 
-  const handleAiAnalyze = () => {
+  const handleAiAnalyze = async () => {
     setShowAiModal(true);
     setAiLoading(true);
     setAiReport("");
-    setTimeout(() => {
-      const totalValue = custodyData.reduce((s, c) => s + (parseFloat(c.price) || 0), 0);
-      const totalItems = custodyData.length;
-      const branches = Array.from(new Set(custodyData.map(c => c.branchId))).length;
-      const avgValue = totalItems > 0 ? Math.round(totalValue / totalItems) : 0;
-      setAiReport(
-`📦 تقرير تحليل عهدة الفروع الذكي:
-
-🏢 عدد الفروع المسجلة: ${branches}
-🔧 إجمالي العهد: ${totalItems} عنصر
-💰 إجمالي القيمة: ${totalValue.toLocaleString()} ج.م
-📊 متوسط قيمة العنصر الواحد: ${avgValue.toLocaleString()} ج.م
-
-💡 التوصيات:
-• مراجعة العهدة ذات القيمة العالية والتحقق من سلامتها دورياً.
-• توثيق العهدة بالصور وأرقام التسلسل لكل عنصر في حال الفقد.
-• تأمين على العهدة ذات القيمة التضخمية العالية (> 10,000 ج.م).`
-      );
+    
+    const totalValue = custodyData.reduce((s, c) => s + (parseFloat(c.price) || 0), 0);
+    const totalItems = custodyData.length;
+    
+    try {
+      const msg = `قم بإنشاء تقرير تحليل ذكي قصير لعهدة هذا الفرع. عدد الأصول هو ${totalItems}، وقيمتها الإجمالية ${totalValue} جنيه مصري.`;
+      const res = await fetch(API_ENDPOINTS.aiChat, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg })
+      });
+      if (res.ok) {
+        const aiResponse = await res.text();
+        setAiReport(aiResponse || "تم التحليل بنجاح.");
+      } else {
+        setAiReport("عذراً، حدث خطأ أثناء التواصل مع المساعد الذكي.");
+      }
+    } catch (e) {
+      setAiReport("عذراً، حدث خطأ فني في المساعد الذكي.");
+    } finally {
       setAiLoading(false);
-    }, 1200);
+    }
   };
 
-  const handleAddCustody = (e) => {
+  const handleAddCustody = async (e) => {
     e.preventDefault();
     if (!isAdmin) {
       alert("عذراً، إضافة العهدة متاحة للمشرفين فقط.");
@@ -122,35 +118,64 @@ export default function CustodyPage() {
     }
     if (!newToolName.trim() || !newToolPrice) return;
 
-    const newItem = {
-      id: Date.now(),
-      branchId: selectedBranch,
-      name: newToolName.trim(),
-      price: parseFloat(newToolPrice || 0),
-      dateAdded: new Date().toISOString().split("T")[0]
-    };
-
-    setCustodyData((prev) => [...prev, newItem]);
-    alert("تم إضافة العهدة بنجاح للفرع! 📦");
-    setNewToolName("");
-    setNewToolPrice("");
+    try {
+      const res = await fetch(API_ENDPOINTS.addCustody, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newToolName.trim(),
+          price: parseFloat(newToolPrice || 0),
+          branchId: parseInt(selectedBranch)
+        })
+      });
+      if (res.ok) {
+        alert("تم إضافة العهدة بنجاح للفرع! 📦");
+        setNewToolName("");
+        setNewToolPrice("");
+        // Reload data
+        const refreshRes = await fetch(API_ENDPOINTS.custodiesByBranch(selectedBranch));
+        if (refreshRes.ok) setCustodyData(await refreshRes.json());
+      } else {
+        alert("خطأ أثناء الإضافة.");
+      }
+    } catch (e) {
+      alert("خطأ في الاتصال بالخادم.");
+    }
   };
 
   // تعديل حقل محدد في العهدة (للأدمن فقط)
-  const handleUpdateCustodyField = (id, field, value) => {
+  const handleUpdateCustodyField = async (item, field, value) => {
     if (!isAdmin) return;
+    const updatedItem = { ...item, [field]: value };
+    // Optimistic update
     setCustodyData((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+      prev.map((c) => (c.id === item.id ? updatedItem : c))
     );
+    try {
+      await fetch(API_ENDPOINTS.editCustody(item.id), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedItem)
+      });
+    } catch (e) {
+      console.error("Error updating custody:", e);
+    }
   };
 
   // حذف عهدة (للأدمن فقط)
-  const handleDeleteCustody = (id) => {
+  const handleDeleteCustody = async (id) => {
     if (!isAdmin) {
       alert("عذراً، الحذف متاح للمشرفين فقط.");
       return;
     }
-    setCustodyData((prev) => prev.filter((c) => c.id !== id));
+    try {
+      const res = await fetch(API_ENDPOINTS.deleteCustody(id), { method: "DELETE" });
+      if (res.ok) {
+        setCustodyData((prev) => prev.filter((c) => c.id !== id));
+      }
+    } catch (e) {
+      console.error("Error deleting custody:", e);
+    }
   };
 
   // فلترة العهد للفرع المختار
@@ -194,7 +219,7 @@ export default function CustodyPage() {
           initial="initial"
           animate="animate"
           variants={containerVariants}
-          className="space-y-8"
+          className="space-y-8 max-w-[1400px] mx-auto"
         >
           {/* هيدر الصفحة */}
           <div className="mb-2 flex items-start justify-between gap-4 flex-wrap" dir="rtl">
@@ -240,22 +265,18 @@ export default function CustodyPage() {
                 تصفح العهدة والأصول التابعة لأي فرع من فروع الورشة المسجلة لديك.
               </p>
               
-              <select
+              <CustomSelect
                 value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
+                onChange={setSelectedBranch}
+                options={[
+                  { value: "الرئيسي", label: "فرع الورشة الرئيسي" },
+                  ...branches.map((b) => ({
+                    value: typeof b === "object" ? b.id : b,
+                    label: typeof b === "object" ? b.name : b
+                  }))
+                ]}
                 className="w-full p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer"
-              >
-                <option value="الرئيسي" className="text-gray-900 dark:text-white bg-white dark:bg-[#1E293B]">فرع الورشة الرئيسي</option>
-                {branches.map((b) => {
-                  const bId = typeof b === "object" ? b.id : b;
-                  const bName = typeof b === "object" ? b.name : b;
-                  return (
-                    <option key={bId} value={bId} className="text-gray-900 dark:text-white bg-white dark:bg-[#1E293B]">
-                      {bName}
-                    </option>
-                  );
-                })}
-              </select>
+              />
             </motion.div>
 
             {/* كارت إضافة عهدة جديدة (متاح للآدمن فقط) */}
@@ -438,7 +459,7 @@ export default function CustodyPage() {
                             <input
                               type="text"
                               value={item.name}
-                              onChange={(e) => handleUpdateCustodyField(item.id, "name", e.target.value)}
+                              onChange={(e) => handleUpdateCustodyField(item, "name", e.target.value)}
                               className="w-full h-9 px-2 bg-transparent text-xs text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
                             />
                           ) : (
@@ -450,7 +471,7 @@ export default function CustodyPage() {
                             <input
                               type="number"
                               value={item.price}
-                              onChange={(e) => handleUpdateCustodyField(item.id, "price", parseFloat(e.target.value) || 0)}
+                              onChange={(e) => handleUpdateCustodyField(item, "price", parseFloat(e.target.value) || 0)}
                               className="w-full h-9 bg-transparent text-xs text-gray-900 dark:text-white border-0 outline-none text-center font-bold focus:ring-1 focus:ring-indigo-500"
                             />
                           ) : (

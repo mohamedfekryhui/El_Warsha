@@ -4,25 +4,13 @@ import Sidebar from "@/components/Sidebar";
 import { useReportsData } from "@/hooks/useReportsData";
 import { FileText, CreditCard, Truck, Receipt, BadgeCheck, TrendingUp, AlertTriangle, ArrowUpRight, Trash2, ShieldCheck, Clipboard, Plus, Sparkles, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const containerVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut", staggerChildren: 0.08 } }
-};
-const itemVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-};
+import CustomSelect from "@/components/CustomSelect";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/Toast";
+import { containerVariants, itemVariants } from "@/utils/animations";
 
 export default function ReportsPage() {
-  const [toastMessage, setToastMessage] = useState("");
-
-  const copyToClipboard = (text) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setToastMessage(`تم النسخ إلى الحافظة: "${text}"`);
-    setTimeout(() => setToastMessage(""), 2000);
-  };
+  const { toastMessage, copyToClipboard } = useToast();
 
   const {
     doctors,
@@ -288,7 +276,7 @@ export default function ReportsPage() {
           initial="initial"
           animate="animate"
           variants={containerVariants}
-          className="space-y-8"
+          className="space-y-8 max-w-[1400px] mx-auto"
         >
           {/* الهيدر مع زر التحليل المالي بالذكاء الاصطناعي */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-250/20 dark:border-gray-800/40 pb-6 mb-2" dir="rtl">
@@ -380,19 +368,16 @@ export default function ReportsPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-[10px] font-semibold text-gray-400 block mb-1.5 ml-1">الطبيب</label>
-                        <select
-                          required
+                        <CustomSelect
                           value={finDoctorId}
-                          onChange={(e) => setFinDoctorId(e.target.value)}
+                          onChange={setFinDoctorId}
+                          options={[
+                            { value: "", label: "اختر العميل..." },
+                            ...doctors.map(d => ({ value: d.id, label: d.name }))
+                          ]}
+                          placeholder="اختر العميل..."
                           className="w-full p-2.5 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-blue-500 outline-none text-xs"
-                        >
-                          <option value="" className="text-gray-900 dark:text-white bg-white dark:bg-[#1E293B]">اختر العميل...</option>
-                          {doctors.map((d) => (
-                            <option key={d.id} value={d.id} className="text-gray-900 dark:text-white bg-white dark:bg-[#1E293B]">
-                              {d.name}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
                       <div>
                         <label className="text-[10px] font-semibold text-gray-400 block mb-1.5 ml-1">تكلفة شحن</label>
@@ -881,19 +866,7 @@ export default function ReportsPage() {
       </AnimatePresence>
 
       {/* توست الإشعار العائم للنسخ الناجح */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9, x: "-50%" }}
-            animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-            exit={{ opacity: 0, y: 20, scale: 0.9, x: "-50%" }}
-            className="fixed bottom-8 left-1/2 transform bg-slate-900/95 text-white dark:bg-white dark:text-slate-900 px-6 py-3 rounded-2xl shadow-2xl font-bold text-xs z-50 flex items-center gap-2 border border-slate-800 dark:border-slate-100"
-          >
-            <span>📋</span>
-            <span>{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Toast message={toastMessage} />
     </div>
   );
 }

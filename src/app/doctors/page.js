@@ -5,15 +5,8 @@ import Sidebar from "@/components/Sidebar";
 import { useDoctorsData } from "@/hooks/useDoctorsData";
 import { Plus, UserPlus, Users, MapPin, Phone, Search, X, Calendar, Filter, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const containerVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut", staggerChildren: 0.08 } }
-};
-const itemVariants = {
-  initial: { opacity: 0, y: 15 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-};
+import CustomSelect from "@/components/CustomSelect";
+import { containerVariants, itemVariants } from "@/utils/animations";
 
 export default function DoctorsPage() {
   const router = useRouter();
@@ -118,7 +111,7 @@ export default function DoctorsPage() {
           initial="initial"
           animate="animate"
           variants={containerVariants}
-          className="space-y-8"
+          className="space-y-8 max-w-[1400px] mx-auto"
         >
           {/* الهيدر */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
@@ -191,16 +184,18 @@ export default function DoctorsPage() {
               {/* فلتر تاريخ التسجيل */}
               <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900/40 px-3 py-2 rounded-2xl border border-gray-200/50 dark:border-gray-800/60">
                 <Calendar size={14} className="text-gray-400" />
-                <select
+                <CustomSelect
                   value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
+                  onChange={setDateFilter}
+                  options={[
+                    { value: "all", label: "كل التواريخ" },
+                    { value: "today", label: "سجل اليوم" },
+                    { value: "week", label: "سجل هذا الأسبوع" },
+                    { value: "month", label: "سجل هذا الشهر" }
+                  ]}
                   className="bg-transparent border-0 text-xs font-bold text-gray-700 dark:text-gray-300 outline-none cursor-pointer"
-                >
-                  <option value="all" className="text-gray-900 dark:text-white bg-white dark:bg-[#1E293B]">كل التواريخ</option>
-                  <option value="today" className="text-gray-900 dark:text-white bg-white dark:bg-[#1E293B]">سجل اليوم</option>
-                  <option value="week" className="text-gray-900 dark:text-white bg-white dark:bg-[#1E293B]">سجل هذا الأسبوع</option>
-                  <option value="month" className="text-gray-900 dark:text-white bg-white dark:bg-[#1E293B]">سجل هذا الشهر</option>
-                </select>
+                  dropdownClassName="min-w-[150px]"
+                />
               </div>
 
               {/* فلترة الترتيب */}

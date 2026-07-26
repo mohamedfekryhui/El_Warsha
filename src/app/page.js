@@ -23,88 +23,17 @@ import {
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/AuthContext";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Legend,
-} from "recharts";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/Toast";
 
-// داتا الرسوم البيانية (ممكن تربطها بـ API مستقبلاً، حالياً لعرض الشكل الاحترافي)
-const revenueData = [
-  { name: "السبت", profit: 4000, revenue: 6000 },
-  { name: "الأحد", profit: 3000, revenue: 5000 },
-  { name: "الإثنين", profit: 5000, revenue: 8000 },
-  { name: "الثلاثاء", profit: 2780, revenue: 3908 },
-  { name: "الأربعاء", profit: 6890, revenue: 9800 },
-  { name: "الخميس", profit: 8390, revenue: 11000 },
-];
-const inventoryUsageData = [
-  { name: "بلي ياباني", used: 120 },
-  { name: "جوانات", used: 85 },
-  { name: "روتور", used: 40 },
-  { name: "كارتيدج", used: 60 },
-];
 
-// ----- Mock data for admin charts -----
-const netProfitMonthly = [
-  { month: "يناير", net: 5000 },
-  { month: "فبراير", net: 6200 },
-  { month: "مارس", net: 5800 },
-  { month: "أبريل", net: 7500 },
-  { month: "مايو", net: 8200 },
-  { month: "يونيو", net: 9000 },
-];
 
-const revenueExpenseMonthly = [
-  { month: "يناير", revenue: 8000, expense: 3000 },
-  { month: "فبراير", revenue: 9500, expense: 3300 },
-  { month: "مارس", revenue: 11000, expense: 4000 },
-  { month: "أبريل", revenue: 13000, expense: 4500 },
-  { month: "مايو", revenue: 14000, expense: 4600 },
-  { month: "يونيو", revenue: 15000, expense: 5000 },
-];
-const orderStatusData = [
-  { name: "تم التسليم", value: 400, color: "#10b981" },
-  { name: "قيد الصيانة", value: 300, color: "#f59e0b" },
-  { name: "بانتظار قطع", value: 100, color: "#f43f5e" },
-];
-const growthData = [
-  { name: "يناير", doctors: 5 },
-  { name: "فبراير", doctors: 12 },
-  { name: "مارس", doctors: 18 },
-  { name: "أبريل", doctors: 25 },
-  { name: "مايو", doctors: 32 },
-  { name: "يونيو", doctors: 45 },
-];
-const topDoctorsData = [
-  { name: "د. أحمد خالد", revenue: 15000 },
-  { name: "د. محمود سعيد", revenue: 12000 },
-  { name: "د. سارة علي", revenue: 9500 },
-  { name: "د. كريم حسن", revenue: 8000 },
-];
 
 export default function Home() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [profits, setProfits] = useState(null);
+  const { user, currentBranchId } = useAuth();
   const [stats, setStats] = useState({ doctorsCount: 0, activeOrdersCount: 0 });
 
-  // States للمهام والأجندة المربوطة بالداتابيز
-  const [todos, setTodos] = useState([]);
-  const [newTodo, setNewTodo] = useState("");
-  const [events, setEvents] = useState({}); // شكلها: { "15": [{id, text, type}] }
   const [loading, setLoading] = useState(true);
 
   // حالات مساعد الذكاء الاصطناعي لتحليل المعاملات المالية مع الشات الاستبدالي
@@ -114,48 +43,38 @@ export default function Home() {
   const [initialDashReportText, setInitialDashReportText] = useState("");
   const [isDashChatMode, setIsDashChatMode] = useState(false);
   const [dashChatInput, setDashChatInput] = useState("");
-  const [toastMessage, setToastMessage] = useState("");
+  const { toastMessage, copyToClipboard } = useToast();
 
-  const copyToClipboard = (text) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setToastMessage(`تم النسخ إلى الحافظة: "${text}"`);
-    setTimeout(() => setToastMessage(""), 2000);
-  };
-
-  const handleAnalyzeDashboard = () => {
+  const handleAnalyzeDashboard = async () => {
     setShowDashboardAiReport(true);
     setDashAiLoading(true);
     setIsDashChatMode(false);
 
-    setTimeout(() => {
+    const doctorsCount = stats.doctorsCount || 0;
+    const activeCount = stats.activeOrdersCount || 0;
+    const msg = `قم بإنشاء تقرير تحليل ذكي للوحة التحكم. عدد الأطباء المسجلين: ${doctorsCount}، عدد الأجهزة قيد الصيانة: ${activeCount}.`;
+
+    try {
+      const res = await fetch(API_ENDPOINTS.aiChat, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg })
+      });
+      if (res.ok) {
+        const reply = await res.text();
+        setDashAiReportText(reply);
+        setInitialDashReportText(reply);
+      } else {
+        setDashAiReportText("عذراً، حدث خطأ أثناء التواصل.");
+      }
+    } catch (e) {
+      setDashAiReportText("حدث خطأ فني.");
+    } finally {
       setDashAiLoading(false);
-      const doctorsCount = stats.doctorsCount || 5;
-      const activeCount = stats.activeOrdersCount || 8;
-      const rev = profits?.grossRevenue || 12800;
-      const net = profits?.netProfit || 8400;
-      const margin = rev > 0 ? Math.round((net / rev) * 100) : 0;
-
-      const reportContent = `📊 تقرير التحليل العام الذكي لأعمال الورشة والمعاملات:
-- عدد الأطباء المسجلين: ${doctorsCount} أطباء
-- الأجهزة قيد الصيانة حالياً: ${activeCount} أجهزة
-- إجمالي الإيرادات الكلية: ${rev} ج.م
-- صافي الأرباح المحققة: ${net} ج.م
-- هامش الربح الصافي: ${margin}%
-
-💡 التقييم والتشخيص الفني المالي:
-1. نسبة هامش الربح الحالي (${margin}%) ممتازة وتشير إلى كفاءة تشغيلية عالية وإدارة جيدة لتكلفة المشتريات.
-2. هناك (${activeCount}) أجهزة قيد العمل، يُنصح بتسريع تسليم الأجهزة التي تم إصلاحها لتحصيل مستحقاتها وزيادة التدفق المالي.
-
-🎯 التوصية المقترحة:
-• استقطاب المزيد من الأطباء من خلال عروض الصيانة الدورية.
-• التأكد من توافر قطع الغيار الأكثر استهلاكاً (البيلية والروتور) في المستودع لتفادي تأخر الصيانات.`;
-      setDashAiReportText(reportContent);
-      setInitialDashReportText(reportContent);
-    }, 1200);
+    }
   };
 
-  const handleSendDashChat = (e) => {
+  const handleSendDashChat = async (e) => {
     e.preventDefault();
     if (!dashChatInput.trim()) return;
 
@@ -163,141 +82,56 @@ export default function Home() {
     setDashChatInput("");
     setDashAiLoading(true);
 
-    setTimeout(() => {
-      setDashAiLoading(false);
-      let reply = "";
-      const textLower = userText.toLowerCase();
-      if (textLower.includes("أرباح") || textLower.includes("ربح") || textLower.includes("زيادة")) {
-        reply = `📈 خطة زيادة الأرباح المقترحة للورشة:
-1. زيادة تسويق خدمة صيانة التوربينات السريعة للأطباء الجدد.
-2. تقليل الاعتماد على استيراد قطع الغيار المستهلكة فردياً عن طريق شرائها بالجملة لتخفيض التكلفة بنسبة 15%.
-3. تفعيل باقات الصيانة السنوية مدفوعة الأجر مقدماً.`;
-      } else if (textLower.includes("صيانة") || textLower.includes("تأخير") || textLower.includes("تسليم")) {
-        reply = `⚙️ تحسين سرعة تسليم الأجهزة:
-• تشير البيانات إلى أن متوسط بقاء الجهاز قيد الصيانة هو 3 أيام.
-• يُنصح بتوفير لوحة متابعة للمهندسين بالورشة لجدولة المهام اليومية وضمان تسليم الأجهزة فور انتهاء صيانتها.`;
+    try {
+      const res = await fetch(API_ENDPOINTS.aiChat, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText })
+      });
+      if (res.ok) {
+        const reply = await res.text();
+        setDashAiReportText(reply);
       } else {
-        reply = `📊 تحليل إحصائي ذكي للاستفسار ("${userText}"):
-لوحة التحكم الحالية تشير إلى نمو إيجابي بنسبة 12% في تسجيل الأطباء الجدد مقارنة بالشهر السابق. نوصي بمواصلة تقديم أسعار تنافسية للشحن لزيادة الحصة السوقية.`;
+        setDashAiReportText("عذراً، حدث خطأ أثناء التواصل.");
       }
-      setDashAiReportText(reply);
-    }, 1000);
+    } catch (e) {
+      setDashAiReportText("حدث خطأ فني.");
+    } finally {
+      setDashAiLoading(false);
+    }
   };
 
   // جلب البيانات من الـ Backend
   useEffect(() => {
+    if (!currentBranchId) return;
     const fetchData = async () => {
       try {
-        const [profRes, docRes, ordRes, todoRes, evRes] = await Promise.all([
-          fetch(API_ENDPOINTS.profits).catch(() => ({ json: async () => ({ grossRevenue: 0, netProfit: 0 }) })),
-          fetch(API_ENDPOINTS.doctors).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.activeOrders).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.todos).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.events).catch(() => ({ json: async () => [] })),
+        const branchIdStr = String(currentBranchId);
+        const [docRes, ordRes] = await Promise.all([
+          fetch(API_ENDPOINTS.doctorsByBranch(branchIdStr)).catch(() => ({ json: async () => [] })),
+          fetch(API_ENDPOINTS.ordersByBranch(branchIdStr)).catch(() => ({ json: async () => [] }))
         ]);
 
-        setProfits(await profRes.json());
         const docs = await docRes.json();
         const ords = await ordRes.json();
-        setStats({ doctorsCount: docs.length, activeOrdersCount: ords.length });
+        
+        const docsCount = Array.isArray(docs) ? docs.length : 0;
+        const ordsList = Array.isArray(ords) ? ords : [];
+        const activeOrdsCount = ordsList.filter(o => o.status !== "تم التوصيل" && o.status !== "تم التسليم").length;
 
-        // جلب المهام
-        const fetchedTodos = await todoRes.json();
-        if (fetchedTodos.length) setTodos(fetchedTodos);
+        setStats({ doctorsCount: docsCount, activeOrdersCount: activeOrdsCount });
 
-        // جلب وتوزيع المواعيد على أيام النتيجة
-        const fetchedEvents = await evRes.json();
-        const eventsMap = {};
-        if (Array.isArray(fetchedEvents)) {
-          fetchedEvents.forEach((ev) => {
-            if (ev.date) {
-              const dayNum = new Date(ev.date).getDate();
-              if (!eventsMap[dayNum]) eventsMap[dayNum] = [];
-              eventsMap[dayNum].push({ id: ev.id, text: ev.title, type: ev.type });
-            }
-          });
-        }
-        setEvents(eventsMap);
       } catch (e) {
-        console.error("Dashboard fetching error, using offline mock layouts:", e);
+        console.error("Dashboard fetching error:", e);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [currentBranchId]);
 
-  // إضافة مهمة جديدة للداتابيز
-  const handleAddTodo = async (e) => {
-    e.preventDefault();
-    if (newTodo.trim()) {
-      const res = await fetch(API_ENDPOINTS.todos, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTodo, completed: false }),
-      });
-      if (res.ok) {
-        const added = await res.json();
-        setTodos((prev) => [...prev, added]);
-      } else {
-        setTodos((prev) => [...prev, { id: Date.now(), title: newTodo, completed: false }]);
-      }
-      setNewTodo("");
-    }
-  };
 
-  // حذف مهمة من الداتابيز
-  const handleRemoveTodo = async (id) => {
-    await fetch(`${API_ENDPOINTS.todos}/${id}`, { method: "DELETE" });
-    setTodos(todos.filter((t) => t.id !== id));
-  };
-
-  // إضافة ميعاد للنتيجة (Calendar) للداتابيز
-  const handleAddEventToDay = async (day) => {
-    const eventText = prompt(`إضافة موعد ليوم ${day} (النوع: صيانة/شحن):`);
-    if (eventText) {
-      const newEvent = {
-        title: eventText,
-        time: "12:00 م",
-        date: `2026-07-${day.toString().padStart(2, "0")}`,
-        type: "delivery",
-      };
-      const res = await fetch(API_ENDPOINTS.events, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newEvent),
-      });
-      if (res.ok) {
-        const added = await res.json();
-        setEvents((prev) => ({
-          ...prev,
-          [day]: [
-            ...(prev[day] || []),
-            { id: added.id, text: added.title, type: added.type },
-          ],
-        }));
-      }
-    }
-  };
-
-  const daysInMonth = new Date(
-    new Date().getFullYear(),
-    new Date().getMonth() + 1,
-    0
-  ).getDate();
-
-  const calendarDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  const daysOfWeek = [
-    "السبت",
-    "الأحد",
-    "الإثنين",
-    "الثلاثاء",
-    "الأربعاء",
-    "الخميس",
-    "الجمعة",
-  ];
 
   const containerVariants = {
     hidden: { opacity: 0, y: 15 },
@@ -344,7 +178,7 @@ export default function Home() {
               <div className="absolute inset-2 rounded-full border-4 border-transparent border-b-purple-500 border-l-purple-500 animate-spin [animation-duration:1.5s]"></div>
               <div className="absolute inset-4 bg-indigo-500/10 rounded-full animate-pulse"></div>
             </div>
-            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 animate-pulse">جاري تحميل لوحة التحكم الذكية...</span>
+            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 animate-pulse">جاري التحميل لوحة التحكم الذكية...</span>
           </div>
         ) : (
           <motion.div
@@ -375,232 +209,22 @@ export default function Home() {
               </motion.div>
               <motion.div variants={itemVariants}>
                 <MetricCard
-                  title="الإيرادات"
-                  value={`${profits?.grossRevenue || 0} ج`}
+                  title="نظرة عامة"
+                  value={`الرئيسية`}
                   icon={<Wallet size={22} />}
                   color="blue"
                 />
               </motion.div>
               <motion.div variants={itemVariants}>
                 <MetricCard
-                  title="الصافي"
-                  value={`${profits?.netProfit || 0} ج`}
-                  icon={<TrendingUp size={22} />}
+                  title="الذكاء الاصطناعي"
+                  value={`نشط`}
+                  icon={<Sparkles size={22} />}
                   color="emerald"
                 />
               </motion.div>
             </div>
 
-            {/* 2. الرسوم البيانية */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <motion.div
-                variants={itemVariants}
-                className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm lg:col-span-2"
-              >
-                <h3 className="text-base font-bold mb-4 flex items-center gap-2">
-                  <TrendingUp size={18} className="text-indigo-650" /> إيرادات الصيانة اليومية
-                </h3>
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={revenueData}>
-                      <defs>
-                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-gray-800" />
-                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
-                      <YAxis stroke="#94a3b8" fontSize={11} />
-                      <RechartsTooltip contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, color: "#f1f5f9", fontSize: 12 }} labelStyle={{ color: "#94a3b8", fontWeight: 700 }} />
-                      <Area type="monotone" dataKey="revenue" stroke="#4f46e5" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" name="الإيرادات" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </motion.div>
-
-              <motion.div
-                variants={itemVariants}
-                className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm"
-              >
-                <h3 className="text-base font-bold mb-4 flex items-center gap-2">
-                  <Package size={18} className="text-emerald-500" /> استهلاك قطع الغيار
-                </h3>
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={inventoryUsageData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-gray-800" />
-                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
-                      <YAxis stroke="#94a3b8" fontSize={11} />
-                      <RechartsTooltip contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, color: "#f1f5f9", fontSize: 12 }} labelStyle={{ color: "#94a3b8", fontWeight: 700 }} />
-                      <Bar dataKey="used" fill="#10b981" radius={[8, 8, 0, 0]} name="القطع المستخدمة" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </motion.div>
-            </div>
-
-            {/* ===== Admin-only Charts ===== */}
-            {user?.role && user.role.toLowerCase().includes("admin") && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-                {/* Chart 1 – الصافي على مدار الشهور */}
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden"
-                >
-                  <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4 flex items-center gap-2">
-                    <TrendingUp size={18} className="text-white" />
-                    <h3 className="text-sm font-bold text-white">الصافي على مدار الشهور</h3>
-                  </div>
-                  <div className="p-6">
-                    <ResponsiveContainer width="100%" height={280}>
-                      <LineChart data={netProfitMonthly} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                        <defs>
-                          <linearGradient id="netGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-gray-700" />
-                        <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                        <RechartsTooltip
-                          contentStyle={{ background: "#1e293b", border: "none", borderRadius: 12, color: "#fff", fontSize: 12 }}
-                          formatter={(v) => [`${v.toLocaleString()} ج.م`, "الصافي"]}
-                        />
-                        <Line type="monotone" dataKey="net" stroke="#10b981" strokeWidth={3} dot={{ r: 5, fill: "#10b981", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 7 }} name="الصافي" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </motion.div>
-
-                {/* Chart 2 – الإيرادات والمصاريف لكل شهر */}
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden"
-                >
-                  <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4 flex items-center gap-2">
-                    <LineIcon size={18} className="text-white" />
-                    <h3 className="text-sm font-bold text-white">الإيرادات والمصاريف لكل شهر</h3>
-                  </div>
-                  <div className="p-6">
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={revenueExpenseMonthly} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" className="dark:stroke-gray-700" />
-                        <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-                        <RechartsTooltip
-                          contentStyle={{ background: "#1e293b", border: "none", borderRadius: 12, color: "#fff", fontSize: 12 }}
-                          formatter={(v, name) => [`${v.toLocaleString()} ج.م`, name]}
-                        />
-                        <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                        <Bar dataKey="revenue" name="الإيرادات" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                        <Bar dataKey="expense" name="المصاريف" fill="#f43f5e" radius={[6, 6, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </motion.div>
-
-              </div>
-            )}
-
-            {/* 3. المهام وجدول المواعيد */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* قائمة المهام */}
-              <motion.div
-                variants={itemVariants}
-                className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm lg:col-span-1"
-              >
-                <h3 className="text-base font-bold mb-4 flex items-center gap-2">
-                  <CheckSquare size={18} className="text-indigo-650" /> أجندة مهام الورشة
-                </h3>
-                <form onSubmit={handleAddTodo} className="flex gap-2 mb-4">
-                  <input
-                    type="text"
-                    value={newTodo}
-                    onChange={(e) => setNewTodo(e.target.value)}
-                    placeholder="مهمة جديدة..."
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 focus:ring-2 focus:ring-indigo-500 outline-none text-xs text-right font-bold"
-                  />
-                  <button
-                    type="submit"
-                    className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl cursor-pointer"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </form>
-
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {todos.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-4">لا توجد مهام حالية.</p>
-                  ) : (
-                    todos.map((todo) => (
-                      <div
-                        key={todo.id}
-                        className="flex justify-between items-center p-3 rounded-xl bg-gray-50 dark:bg-gray-900/30 border border-gray-150 dark:border-gray-800/40"
-                      >
-                        <button
-                          onClick={() => handleRemoveTodo(todo.id)}
-                          className="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-955/20 p-1.5 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                          {todo.title}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </motion.div>
-
-              {/* تقويم المواعيد الشهري */}
-              <motion.div
-                variants={itemVariants}
-                className="bg-white dark:bg-[#1E293B] p-6 rounded-3xl border border-gray-100/50 dark:border-gray-800 shadow-sm lg:col-span-2"
-                dir="rtl"
-              >
-                <h3 className="text-base font-bold mb-4 flex items-center gap-2">
-                  <Calendar size={18} className="text-amber-500 animate-pulse" /> مواعيد التسليم والشحن (اضغط على رقم اليوم للإضافة)
-                </h3>
-                <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-gray-400 dark:text-gray-650 mb-2">
-                  {daysOfWeek.map((d) => (
-                    <div key={d} className="py-1">{d}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1 border-t border-gray-100 dark:border-gray-800/80 pt-2">
-                  {/* ملء مساحات فارغة قبل بداية الشهر لتقويم منسق */}
-                  {Array.from({ length: 3 }).map((_, idx) => (
-                    <div key={idx} className="h-16 bg-gray-50/20 dark:bg-transparent rounded-lg"></div>
-                  ))}
-                  
-                  {calendarDays.map((day) => (
-                    <div
-                      key={day}
-                      onClick={() => handleAddEventToDay(day)}
-                      className="h-16 bg-gray-50 dark:bg-gray-900/20 border border-gray-150/40 dark:border-gray-800/40 rounded-xl p-1 text-right flex flex-col justify-between hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
-                    >
-                      <span
-                        className={`text-xs font-bold ${day === new Date().getDate() ? "bg-blue-600 text-white w-6 h-6 flex items-center justify-center rounded-full" : ""}`}
-                      >
-                        {day}
-                      </span>
-                      <div className="mt-1 space-y-1">
-                        {events[day]?.map((ev) => (
-                          <div
-                            key={ev.id}
-                            className="text-[10px] p-1 rounded font-medium truncate bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
-                          >
-                            {ev.text}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
           </motion.div>
         )}
       </main>
@@ -723,19 +347,7 @@ export default function Home() {
       </AnimatePresence>
 
       {/* توست الإشعار العائم للنسخ الناجح */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9, x: "-50%" }}
-            animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-            exit={{ opacity: 0, y: 20, scale: 0.9, x: "-50%" }}
-            className="fixed bottom-8 left-1/2 transform bg-slate-900/95 text-white dark:bg-white dark:text-slate-900 px-6 py-3 rounded-2xl shadow-2xl font-bold text-xs z-50 flex items-center gap-2 border border-slate-800 dark:border-slate-100"
-          >
-            <span>📋</span>
-            <span>{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Toast message={toastMessage} />
     </div>
   );
 }

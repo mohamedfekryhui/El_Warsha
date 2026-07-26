@@ -27,12 +27,24 @@ export default function ChatWidget() {
     const fetchStatsForBot = async () => {
       try {
         const branchIdStr = String(currentBranchId);
-        const [docRes, ordRes] = await Promise.all([
-          fetch(API_ENDPOINTS.doctorsByBranch(branchIdStr)).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.ordersByBranch(branchIdStr)).catch(() => ({ json: async () => [] })),
+        if (branchIdStr === "undefined") return;
+
+        const safeFetchJson = async (url) => {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) return [];
+            const text = await res.text();
+            return text ? JSON.parse(text) : [];
+          } catch (e) {
+            return [];
+          }
+        };
+
+        const [docs, ords] = await Promise.all([
+          safeFetchJson(API_ENDPOINTS.doctorsByBranch(branchIdStr)),
+          safeFetchJson(API_ENDPOINTS.ordersByBranch(branchIdStr)),
         ]);
-        const docs = await docRes.json();
-        const ords = await ordRes.json();
+        
         setStats({
           doctorsCount: Array.isArray(docs) ? docs.length : 0,
           activeOrdersCount: Array.isArray(ords) ? ords.length : 0,

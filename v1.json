@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "https://localhost:7226/"
+      "url": "https://el-warsha-back.onrender.com/"
     }
   ],
   "paths": {

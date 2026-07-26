@@ -95,9 +95,9 @@ export default function AuthScreen() {
       const isAdmin = typeof userRole === "string" && userRole.toLowerCase().includes("admin");
 
       if (isAdmin) {
-        // Default branch for Admin is ""
-        selectBranch("");
-        localStorage.setItem("elwarsha_current_branch", "");
+        // Default branch for Admin is 1
+        selectBranch(1);
+        localStorage.setItem("elwarsha_current_branch", "1");
       } else if (normalizedData.branches && normalizedData.branches.length > 0) {
         // Default to selecting the first branch automatically for other roles
         const firstBranch = normalizedData.branches[0];

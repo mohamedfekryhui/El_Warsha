@@ -103,18 +103,27 @@ export default function Home() {
 
   // جلب البيانات من الـ Backend
   useEffect(() => {
-    if (!currentBranchId) return;
+    const branchIdStr = String(currentBranchId);
+    if (!currentBranchId || branchIdStr === "undefined" || branchIdStr === "null") return;
+
     const fetchData = async () => {
       try {
-        const branchIdStr = String(currentBranchId);
-        const [docRes, ordRes] = await Promise.all([
-          fetch(API_ENDPOINTS.doctorsByBranch(branchIdStr)).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.ordersByBranch(branchIdStr)).catch(() => ({ json: async () => [] }))
+        const safeFetchJson = async (url) => {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) return [];
+            const text = await res.text();
+            return text ? JSON.parse(text) : [];
+          } catch (e) {
+            return [];
+          }
+        };
+
+        const [docs, ords] = await Promise.all([
+          safeFetchJson(API_ENDPOINTS.doctorsByBranch(branchIdStr)),
+          safeFetchJson(API_ENDPOINTS.ordersByBranch(branchIdStr)),
         ]);
 
-        const docs = await docRes.json();
-        const ords = await ordRes.json();
-        
         const docsCount = Array.isArray(docs) ? docs.length : 0;
         const ordsList = Array.isArray(ords) ? ords : [];
         const activeOrdsCount = ordsList.filter(o => o.status !== "تم التوصيل" && o.status !== "تم التسليم").length;

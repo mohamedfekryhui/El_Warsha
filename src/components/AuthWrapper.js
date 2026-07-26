@@ -9,9 +9,16 @@ export default function AuthWrapper({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 🔧 Force-clean any corrupted "undefined" localStorage values
+    if (typeof window === "undefined") return;
+    const storedBranch = localStorage.getItem("elwarsha_current_branch");
+    if (storedBranch === "undefined" || storedBranch === "null" || storedBranch === "") {
+      localStorage.setItem("elwarsha_current_branch", "1");
+    }
+
     // 1. محاولة استعادة الجلسة من الـ localStorage عند فتح التطبيق
     const storedAuth = localStorage.getItem("elwarsha_auth");
-    const storedBranch = localStorage.getItem("elwarsha_current_branch");
+    const cleanedBranch = localStorage.getItem("elwarsha_current_branch");
 
     if (storedAuth) {
       try {
@@ -51,30 +58,18 @@ export default function AuthWrapper({ children }) {
 
         login(normalizedData); // استرجاع بيانات اليوزر والفروع المتاحة له
 
-        if (storedBranch !== null && storedBranch !== undefined) {
-          selectBranch(storedBranch === "" ? "" : (isNaN(parseInt(storedBranch, 10)) ? storedBranch : parseInt(storedBranch, 10))); // استرجاع الفرع النشط حالياً
-        } else {
-          // Default to selecting the first branch automatically for all roles if not stored
-          const userRole = normalizedData.role;
-          const isAdmin = typeof userRole === "string" && userRole.toLowerCase().includes("admin");
-          if (isAdmin) {
-            selectBranch("");
-            localStorage.setItem("elwarsha_current_branch", "");
-          } else if (normalizedData.branches && normalizedData.branches.length > 0) {
-            const firstBranch = normalizedData.branches[0];
-            const branchId = typeof firstBranch === "object" ? firstBranch.id : firstBranch;
-            selectBranch(branchId);
-            localStorage.setItem("elwarsha_current_branch", String(branchId));
-          }
-        }
+        // Restore branch — always default to 1 if nothing valid is stored
+        const parsedBranch = parseInt(cleanedBranch, 10);
+        selectBranch(isNaN(parsedBranch) ? 1 : parsedBranch);
+
       } catch (e) {
         console.error("خطأ في قراءة بيانات الجلسة السابقة:", e);
         localStorage.removeItem("elwarsha_auth");
-        localStorage.removeItem("elwarsha_current_branch");
+        localStorage.setItem("elwarsha_current_branch", "1");
       }
     }
     setLoading(false);
-  }, []);
+  }, [login, selectBranch]);
 
   if (loading) {
     return (

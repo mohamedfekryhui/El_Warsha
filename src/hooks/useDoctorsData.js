@@ -15,15 +15,24 @@ export function useDoctorsData() {
   const [docAddr2, setDocAddr2] = useState("");
 
   const fetchDoctors = async () => {
-    if (!currentBranchId) return;
+    const branchIdStr = String(currentBranchId);
+    if (!currentBranchId || branchIdStr === "undefined" || branchIdStr === "null") return;
     try {
-      const branchIdStr = String(currentBranchId);
-      const [res, repRes] = await Promise.all([
-        fetch(API_ENDPOINTS.doctorsByBranch(branchIdStr)).catch(() => ({ json: async () => [] })),
-        fetch(API_ENDPOINTS.financialRecords).catch(() => ({ json: async () => [] })),
+      const safeFetchJson = async (url) => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return [];
+          const text = await res.text();
+          return text ? JSON.parse(text) : [];
+        } catch (e) {
+          return [];
+        }
+      };
+
+      const [data, repData] = await Promise.all([
+        safeFetchJson(API_ENDPOINTS.doctorsByBranch(branchIdStr)),
+        safeFetchJson(API_ENDPOINTS.financialRecords),
       ]);
-      const data = await res.json();
-      const repData = await repRes.json();
 
       setDoctors(Array.isArray(data) ? data : []);
       setReports(Array.isArray(repData) ? repData : []);

@@ -32,7 +32,7 @@ export default function Sidebar() {
     return () => clearInterval(timer);
   }, []);
 
-  const activeBranchName = currentBranchId === "" ? "الرئيسي" : (user?.branches?.find(b => b.id == currentBranchId)?.name || user?.branches?.find(b => b == currentBranchId) || "الفرع الحالي");
+  const activeBranchName = (currentBranchId === 1 || currentBranchId === "1" || currentBranchId === "") ? "الرئيسي" : (user?.branches?.find(b => b.id == currentBranchId)?.name || user?.branches?.find(b => b == currentBranchId) || "الفرع الحالي");
   const currentBranch = (currentBranchId !== null && currentBranchId !== undefined) ? activeBranchName : null;
 
   const clearBranch = () => {
@@ -74,7 +74,7 @@ export default function Sidebar() {
       id: "dashboard",
       name: "نظرة عامة",
       icon: <LayoutDashboard size={20} />,
-      path: "/dashboard",
+      path: "/",
     },
     {
       id: "doctors",

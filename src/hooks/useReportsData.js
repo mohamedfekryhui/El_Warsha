@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { API_ENDPOINTS } from "@/config/api";
+import { useAuth } from "@/AuthContext";
 
 export function useReportsData() {
+  const { currentBranchId } = useAuth();
   const [doctors, setDoctors] = useState([]);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +15,9 @@ export function useReportsData() {
   const [finPaid, setFinPaid] = useState("");
 
   const refreshFinancials = async () => {
+    const branchIdStr = String(currentBranchId);
+    if (!currentBranchId || branchIdStr === "undefined" || branchIdStr === "null") return;
+
     try {
       setLoading(true);
       const safeFetchJson = async (url) => {
@@ -27,8 +32,8 @@ export function useReportsData() {
       };
 
       const [docs, reps] = await Promise.all([
-        safeFetchJson(API_ENDPOINTS.doctors),
-        safeFetchJson(API_ENDPOINTS.financialRecords),
+        safeFetchJson(API_ENDPOINTS.doctorsByBranch(branchIdStr)),
+        safeFetchJson(API_ENDPOINTS.financialRecords), // ⚠️ Backend might still need a GET endpoint for this!
       ]);
 
       setDoctors(Array.isArray(docs) ? docs : []);
@@ -42,7 +47,7 @@ export function useReportsData() {
 
   useEffect(() => {
     refreshFinancials();
-  }, []);
+  }, [currentBranchId]);
 
   const handleRecordTransaction = async (e) => {
     e.preventDefault();

@@ -124,7 +124,7 @@ export default function AuthScreen() {
     setAddBranchError("");
 
     try {
-      const response = await fetch("https://elwarshaback-production.up.railway.app/api/branches", {
+      const response = await fetch("https://el-warsha-back.onrender.com/api/branches", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

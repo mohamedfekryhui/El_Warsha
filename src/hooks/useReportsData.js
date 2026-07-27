@@ -15,23 +15,24 @@ export function useReportsData() {
   const refreshFinancials = async () => {
     try {
       setLoading(true);
-      const [docsRes, repRes] = await Promise.all([
-        fetch(API_ENDPOINTS.doctors).catch(() => ({ json: async () => [] })),
-        fetch(API_ENDPOINTS.doctorsAccounts).catch(() => ({ json: async () => [] })),
+      const safeFetchJson = async (url) => {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return [];
+          const text = await res.text();
+          return text ? JSON.parse(text) : [];
+        } catch (e) {
+          return [];
+        }
+      };
+
+      const [docs, reps] = await Promise.all([
+        safeFetchJson(API_ENDPOINTS.doctors),
+        safeFetchJson(API_ENDPOINTS.financialRecords),
       ]);
-      let docs = await docsRes.json();
-      let reps = await repRes.json();
 
-      // Fallback
-      if (!Array.isArray(docs) || docs.length === 0) {
-        docs = [{ id: 1, name: "د. محمد علي", phone: "01012345678", address1: "القاهرة، مدينة نصر", address2: "الجيزة، الدقي" }];
-      }
-      if (!Array.isArray(reps) || reps.length === 0) {
-        reps = [{ doctorId: 1, doctorName: "د. محمد علي", totalPartsCost: 350, totalShipping: 50, totalRequired: 400, totalPaid: 200, remainingBalance: 200 }];
-      }
-
-      setDoctors(docs);
-      setReports(reps);
+      setDoctors(Array.isArray(docs) ? docs : []);
+      setReports(Array.isArray(reps) ? reps : []);
     } catch (error) {
       console.error("Error fetching reports:", error);
     } finally {

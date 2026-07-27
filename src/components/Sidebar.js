@@ -14,14 +14,14 @@ import {
   MessageSquare,
   Building2,
 } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/AuthContext";
-import Link from "next/link";
 import logoImg from "@/Logo.png";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [darkMode, setDarkMode] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { user, currentBranchId, selectBranch, logout } = useAuth();
@@ -213,11 +213,11 @@ export default function Sidebar() {
           {menuItems.map((item) => {
             const isActive = pathname === item.path;
             return (
-              <Link
+              <button
                 key={item.id}
-                href={item.path}
+                onClick={() => router.push(item.path)}
                 className={`w-full flex items-center ${isCollapsed ? "justify-center p-3.5" : "justify-start gap-4 px-4 py-3.5"
-                  } text-sm font-bold rounded-2xl transition-all duration-300 ${isActive
+                  } text-sm font-bold rounded-2xl transition-all duration-300 cursor-pointer ${isActive
                     ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 shadow-sm"
                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-200 hover:-translate-x-1"
                   }`}
@@ -234,7 +234,7 @@ export default function Sidebar() {
                     {item.name}
                   </span>
                 )}
-              </Link>
+              </button>
             );
           })}
         </nav>

@@ -12,7 +12,7 @@ export default function ChatWidget() {
     {
       id: "welcome",
       sender: "bot",
-      text: "أهلاً بك في الورشة! 🦷 أنا مساعدك الذكي. كيف يمكنني خدمتك اليوم؟ يمكنك سؤالي عن إجمالي الأرباح، عدد الأطباء، أو الأجهزة قيد الصيانة حالياً.",
+      text: "أهلاً بك في الورشة! 🦷 أنا مساعدك . كيف يمكنني خدمتك اليوم؟ يمكنك سؤالي عن إجمالي الأرباح، عدد الدكاترة أو كونترات قيد الصيانة حالياً.",
     },
   ]);
   const [inputText, setInputText] = useState("");
@@ -77,7 +77,7 @@ export default function ChatWidget() {
 
     try {
       // Append some contextual stats to the prompt
-      const contextMsg = `[سياق للنظام: عدد الأطباء المسجلين هو ${stats.doctorsCount}، عدد الأجهزة قيد الصيانة هو ${stats.activeOrdersCount}] ${textToSend}`;
+      const contextMsg = `[سياق للنظام: عدد الأطباء المسجلين هو ${stats.doctorsCount}، عدد الكونترات قيد الصيانة هو ${stats.activeOrdersCount}] ${textToSend}`;
       const res = await fetch(API_ENDPOINTS.aiChat, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -103,7 +103,7 @@ export default function ChatWidget() {
 
   const suggestionChips = [
     { text: "تحليل الأطباء 🩺", query: "اعطني تقرير مختصر عن عدد الدكاترة ونشاطهم." },
-    { text: "الأجهزة قيد الصيانة 🛠️", query: "ما هي حالة الأجهزة الحالية؟" },
+    { text: "الكونترات قيد الصيانة 🛠️", query: "ما هي حالة الكونترات الحالية؟" },
   ];
 
   return (

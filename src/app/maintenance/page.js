@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { useMaintenanceData } from "@/hooks/useMaintenanceData";
 import { useResizableColumns } from "@/hooks/useResizableColumns";
 import { exportToExcel } from "@/utils/exportToExcel";
+import { exportToWord } from "@/utils/exportToWord";
 import CustomSelect from "@/components/CustomSelect";
 import {
   Wrench,
@@ -31,6 +32,34 @@ import {
   backdropVariants
 } from "@/utils/animations";
 
+const getTypeColor = (type) => {
+  switch(type) {
+    case "هاي": return "text-blue-600 dark:text-blue-400";
+    case "لو": return "text-emerald-600 dark:text-emerald-400";
+    case "زراعة": return "text-amber-600 dark:text-amber-400";
+    case "روتاري": return "text-purple-600 dark:text-purple-400";
+    case "ادابتور": return "text-orange-600 dark:text-orange-400";
+    case "سكيلر": return "text-cyan-600 dark:text-cyan-400";
+    case "جهاز موتور": return "text-rose-600 dark:text-rose-400";
+    case "استريت": return "text-teal-600 dark:text-teal-400";
+    default: return "text-gray-900 dark:text-white";
+  }
+};
+
+const getRowBgColor = (type) => {
+  switch(type) {
+    case "هاي": return "bg-blue-50/40 dark:bg-blue-900/10";
+    case "لو": return "bg-emerald-50/40 dark:bg-emerald-900/10";
+    case "زراعة": return "bg-amber-50/40 dark:bg-amber-900/10";
+    case "روتاري": return "bg-purple-50/40 dark:bg-purple-900/10";
+    case "ادابتور": return "bg-orange-50/40 dark:bg-orange-900/10";
+    case "سكيلر": return "bg-cyan-50/40 dark:bg-cyan-900/10";
+    case "جهاز موتور": return "bg-rose-50/40 dark:bg-rose-900/10";
+    case "استريت": return "bg-teal-50/40 dark:bg-teal-900/10";
+    default: return "bg-white dark:bg-[#151F32]";
+  }
+};
+
 export default function MaintenancePage() {
   const router = useRouter();
   const {
@@ -49,6 +78,11 @@ export default function MaintenancePage() {
     // المتغيرات الجديدة
     isReceiptMode,
     setIsReceiptMode,
+    globalDiscount,
+    setGlobalDiscount,
+    suggestedToolNames,
+    suggestedFaultReasons,
+    suggestedContraStatuses,
     selectedDocId,
     setSelectedDocId,
     receiptRows,
@@ -77,6 +111,7 @@ export default function MaintenancePage() {
   const [newServicePriceDoc, setNewServicePriceDoc] = useState("");
 
   const [activeDropdownRow, setActiveDropdownRow] = useState(null);
+  const [maintenanceSearchQuery, setMaintenanceSearchQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const { toastMessage, copyToClipboard } = useToast();
   const [showAiModal, setShowAiModal] = useState(false);
@@ -84,8 +119,8 @@ export default function MaintenancePage() {
   const [aiReport, setAiReport] = useState("");
   const [undoAction, setUndoAction] = useState(null);
 
-  // Resizable columns for receipt table (10 cols)
-  const receiptResize = useResizableColumns([36, 160, 100, 160, 100, 110, 80, 80, 140, 44]);
+  // Resizable columns for receipt table (11 cols)
+  const receiptResize = useResizableColumns([36, 160, 160, 100, 160, 100, 110, 80, 80, 140, 44]);
   // Resizable columns for services table (8 cols)
   const servicesResize = useResizableColumns([48, 260, 100, 80, 120, 120, 180, 48]);
 
@@ -106,11 +141,11 @@ export default function MaintenancePage() {
       setAiReport(
         `🔧 تقرير تحليل الصيانة الذكي:
 
-📦 الأجهزة النشطة قيد الصيانة: ${active} جهاز
+📦 الكونترات النشطة قيد الصيانة: ${active} كونتر
 🛠️ إجمالي خدمات الرف: ${services} (${maintenance} صيانة، ${parts} قطعة غيار)
 
 💡 التوصيات:
-• تسريع تسليم الأجهزة التي اكتملت صيانتها لتحسين التدفق المالي.
+• تسريع تسليم الكونترات التي اكتملت صيانتها لتحسين التدفق المالي.
 • مراجعة قطع الغيار الأكثر استهلاكاً وتأمين مخزون احتياطي منها.
 • جدولة المراجعة الدورية لكل جهاز قيد الصيانة كل 48 ساعة.
 
@@ -370,28 +405,50 @@ export default function MaintenancePage() {
                           <Plus size={20} />
                         </div>
                         <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">
-                          نموذج استلام الأجهزة والهاندبيسات الجديدة
+                          نموذج استلام الكونترات الجديدة
                         </h3>
                       </div>
                       {selectedDocId && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const rows = [
-                              ["اسم الهاندبيس", "الرقم التسلسلي", "نوع الصيانة", "سبب العطل", "حالة الكونترا", "سعر الورشة", "سعر الدكتور", "ملاحظات"],
-                              ...receiptRows.map(r => [
-                                r.toolName || "", r.serial || "",
-                                (r.maintenanceTypes || []).join(" + "),
-                                r.faultReason || "", r.contraStatus || "",
-                                r.priceUs || 0, r.priceDoc || 0, r.notes || ""
-                              ])
-                            ];
-                            exportToExcel(rows, `فاتورة-استلام-${new Date().toLocaleDateString("ar-EG")}`);
-                          }}
-                          className="shrink-0 px-4 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                        >
-                          <FileDown size={14} /> تصدير Excel
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rows = [
+                                ["نوع الهاندبيس", "اسم الهاندبيس", "الرقم التسلسلي", "نوع الصيانة", "سبب العطل", "حالة الكونترا", "سعر الورشة", "سعر الدكتور", "ملاحظات"],
+                                ...receiptRows.map(r => [
+                                  r.handpieceType || "", r.toolName || "", r.serial || "",
+                                  (r.maintenanceTypes || []).join(" + "),
+                                  r.faultReason || "", r.contraStatus || "",
+                                  r.priceUs || 0, r.priceDoc || 0, r.notes || ""
+                                ])
+                              ];
+                              const doc = doctors.find(d => d.id === parseInt(selectedDocId));
+                              const docName = doc ? doc.name : "غير محدد";
+                              const d = new Date();
+                              const dateStr = `${d.getDate()}-${d.getMonth() + 1}`;
+                              exportToExcel(rows, `${docName} ${dateStr}`);
+                            }}
+                            className="shrink-0 px-4 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <FileDown size={14} /> تصدير Excel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const doc = doctors.find(d => d.id === parseInt(selectedDocId));
+                              const docName = doc ? doc.name : "غير محدد";
+                              const d = new Date();
+                              const dateStr = `${d.getDate()}-${d.getMonth() + 1}`;
+                              const shippingStr = window.prompt("أدخل مصاريف الشحن لطباعتها في الفاتورة (أو 0 إذا كانت مجانية):", "0");
+                              if (shippingStr === null) return;
+                              const shippingPrice = parseFloat(shippingStr) || 0;
+                              exportToWord(receiptRows, `${docName} ${dateStr}`, docName, shippingPrice, globalDiscount);
+                            }}
+                            className="shrink-0 px-4 py-2.5 rounded-2xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <FileDown size={14} /> تصدير Word
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -406,6 +463,8 @@ export default function MaintenancePage() {
                             value={selectedDocId}
                             onChange={setSelectedDocId}
                             placeholder="اختر صاحب الهاندبيس..."
+                            searchable={true}
+                            maxVisible={4}
                             options={[
                               { value: "", label: "اختر صاحب الهاندبيس..." },
                               ...doctors.map(d => ({ value: d.id, label: d.name }))
@@ -417,7 +476,6 @@ export default function MaintenancePage() {
 
                       {/* الخطوة الثانية: جدول الاستلام المرن Excel */}
                       <AnimatePresence>
-                        {selectedDocId ? (
                           <motion.div
                             key="receipt-table"
                             variants={tableVariants}
@@ -428,79 +486,168 @@ export default function MaintenancePage() {
                             style={{ overflow: 'hidden' }}
                           >
                             {/* Table with sticky header + textareas */}
-                            <div className="overflow-auto max-h-[350px] border border-gray-200 dark:border-gray-800/80 rounded-xl" id="receipt-table-scroll">
+                            <div className="overflow-auto max-h-[500px] pb-40 border border-gray-200 dark:border-gray-800/80 rounded-xl" id="receipt-table-scroll">
+                              <datalist id="toolName-suggestions">
+                                {suggestedToolNames?.map(s => <option key={s} value={s} />)}
+                              </datalist>
+                              <datalist id="faultReason-suggestions">
+                                {suggestedFaultReasons?.map(s => <option key={s} value={s} />)}
+                              </datalist>
+                              <datalist id="contraStatus-suggestions">
+                                {suggestedContraStatuses?.map(s => <option key={s} value={s} />)}
+                              </datalist>
                               <table className="text-right border-collapse border-0 divide-y divide-gray-200 dark:divide-gray-800" style={{ tableLayout: 'auto', width: 'auto', minWidth: '100%' }}>
 
                                 <thead className="sticky top-0 z-10 shadow-sm bg-gray-100 dark:bg-gray-800">
                                   <tr className="text-gray-600 dark:text-gray-400 divide-x divide-x-reverse divide-gray-200 dark:divide-gray-800">
-                                    {["", "اسم الهاندبيس", "الرقم التسلسلي S/N", "نوع الصيانة", "سبب العطل", "حالة الكونترا", "سعر الورشة", "سعر الدكتور", "ملاحظات", "حذف"].map((label, i) => (
+                                    {["", "نوع الهاندبيس", "اسم الهاندبيس", "الرقم التسلسلي S/N", "نوع الصيانة", "السعر علينا", "سعر الدكتور", "سبب العطل", "حالة الكونترا", "ملاحظات", "حذف"].map((label, i) => (
                                       <th
                                         key={i}
                                         className="p-2 text-xs font-bold select-none relative group text-center"
                                       >
-                                        <span className={i === 4 ? "text-orange-600 dark:text-orange-400" : i === 5 ? "text-purple-600 dark:text-purple-400" : ""}>{label}</span>
+                                        <span className={i === 7 ? "text-orange-600 dark:text-orange-400" : i === 8 ? "text-purple-600 dark:text-purple-400" : ""}>{label}</span>
                                       </th>
                                     ))}
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-[#151F32]">
-                                  {receiptRows.map((row, idx) => {
-                                    const hasPriceWarning = parseFloat(row.priceDoc || 0) < parseFloat(row.priceUs || 0);
-                                    return (
-                                      <tr key={idx} className="divide-x divide-x-reverse divide-gray-200 dark:divide-gray-800 hover:bg-gray-50/40 dark:hover:bg-gray-900/10">
-                                        <td className="p-2 text-center text-xs font-bold text-gray-400 dark:text-gray-600 bg-gray-50/50 dark:bg-gray-900/30">
+                                    {receiptRows.map((row, idx) => {
+                                      const hasPriceWarning = parseFloat(row.priceDoc || 0) < parseFloat(row.priceUs || 0);
+                                      return (
+                                        <tr key={idx} className={`divide-x divide-x-reverse divide-gray-200 dark:divide-gray-800 transition-colors ${getRowBgColor(row.handpieceType || "هاي")} hover:brightness-95 dark:hover:brightness-110`}>
+                                        <td className={`p-2 text-center text-xs font-bold text-gray-400 dark:text-gray-600 ${getRowBgColor(row.handpieceType || "هاي")}`}>
                                           {idx + 1}
                                         </td>
+                                        <td className="p-0 h-full relative">
+                                          <div className="w-full h-full min-h-[40px] flex flex-col gap-1 relative group/field justify-center p-1">
+                                            <div className="relative w-full">
+                                              <select
+                                                value={row.handpieceType || "هاي"}
+                                                onChange={(e) => handleUpdateRow(idx, "handpieceType", e.target.value)}
+                                                className={`appearance-none w-full pl-6 pr-2 py-1.5 bg-transparent text-sm border-0 outline-none focus:ring-1 focus:ring-teal-500 font-bold cursor-pointer ${getTypeColor(row.handpieceType || "هاي")}`}
+                                              >
+                                                {["هاي", "لو", "زراعة", "روتاري", "ادابتور", "سكيلر", "جهاز موتور", "استريت"].map(t => (
+                                                  <option key={t} value={t} className={`bg-white dark:bg-[#1E293B] font-bold ${getTypeColor(t)}`}>{t}</option>
+                                                ))}
+                                              </select>
+                                              <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-[9px] text-gray-400 opacity-50 group-hover/field:opacity-100 transition-opacity">▼</div>
+                                            </div>
+                                            {(row.handpieceType === "استريت" || row.handpieceType === "جهاز موتور") && (
+                                              <div className="relative w-full border-t border-gray-200/50 dark:border-gray-700/50 pt-1">
+                                                <select
+                                                  value={row.quantity || "1"}
+                                                  onChange={(e) => handleUpdateRow(idx, "quantity", parseInt(e.target.value))}
+                                                  className="appearance-none w-full pl-6 pr-2 py-1 bg-transparent text-xs border-0 outline-none focus:ring-1 focus:ring-teal-500 font-bold cursor-pointer text-gray-600 dark:text-gray-400"
+                                                >
+                                                  {(row.handpieceType === "استريت" ? [1, 2] : [1, 2, 3, 4, 5, 6, 7]).map(n => (
+                                                    <option key={n} value={n} className="bg-white dark:bg-[#1E293B] font-bold text-gray-700 dark:text-gray-300">{n} قطعة</option>
+                                                  ))}
+                                                </select>
+                                                <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-gray-400">▼</div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </td>
                                         <td className="p-0 h-full">
-                                          <div onDoubleClick={(e) => { e.currentTarget.style.width = ''; e.currentTarget.style.height = ''; }} className="w-full h-full min-h-[40px] min-w-[50px] resize overflow-hidden flex flex-col group/field">
-                                            <textarea rows={1} value={row.toolName} onChange={(e) => handleUpdateRow(idx, "toolName", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 0)} data-row={idx} data-col={0} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-teal-500 font-semibold resize-none overflow-y-auto" />
+                                          <div className="w-full h-full min-h-[40px] min-w-[50px] flex flex-col group/field">
+                                            <input type="text" list="toolName-suggestions" value={row.toolName} onChange={(e) => handleUpdateRow(idx, "toolName", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 1)} data-row={idx} data-col={1} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-teal-500 font-semibold" />
                                           </div>
                                         </td>
                                         <td className="p-0 h-full">
                                           <div onDoubleClick={(e) => { e.currentTarget.style.width = ''; e.currentTarget.style.height = ''; }} className="w-full h-full min-h-[40px] min-w-[50px] resize overflow-hidden flex flex-col group/field">
-                                            <textarea rows={1} value={row.serial} onChange={(e) => handleUpdateRow(idx, "serial", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 1)} data-row={idx} data-col={1} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-teal-500 resize-none overflow-y-auto" />
+                                            <textarea rows={1} value={row.serial} onChange={(e) => handleUpdateRow(idx, "serial", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 2)} data-row={idx} data-col={2} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-teal-500 resize-none overflow-y-auto" />
                                           </div>
                                         </td>
-                                        <td className="p-0 relative">
-                                          <div className="w-full h-10 flex items-center justify-between px-3">
-                                            <button type="button" onClick={(e) => { e.stopPropagation(); setActiveDropdownRow(activeDropdownRow === idx ? null : idx); }} className="w-full text-right text-sm text-gray-700 dark:text-gray-300 focus:outline-none flex justify-between items-center cursor-pointer font-bold">
-                                              <span className="truncate">{row.maintenanceTypes?.length > 0 ? row.maintenanceTypes.join(" + ") : "اختر..."}</span>
-                                              <span className="text-[9px] text-gray-400 mr-2">▼</span>
+                                        <td className="p-0 relative align-top">
+                                          <div className="w-full h-full flex flex-col justify-between min-h-[40px]">
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); setActiveDropdownRow(activeDropdownRow === idx ? null : idx); setMaintenanceSearchQuery(""); }} className="w-full h-full flex-1 text-right text-xs text-gray-700 dark:text-gray-300 focus:outline-none flex flex-col gap-1 items-start cursor-pointer font-bold relative p-2">
+                                              {row.maintenanceTypes?.length > 0 ? (
+                                                row.maintenanceTypes.map(t => <span key={t} className="bg-white/60 dark:bg-black/20 px-1.5 rounded w-full truncate border border-gray-200/40 dark:border-gray-700/50 text-gray-900 dark:text-white h-[26px] flex items-center">{t}</span>)
+                                              ) : (
+                                                <span className="text-gray-400 h-[26px] flex items-center">اختر...</span>
+                                              )}
+                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">▼</span>
                                             </button>
                                           </div>
                                           {activeDropdownRow === idx && (
                                             <>
                                               <div className="fixed inset-0 z-10" onClick={() => setActiveDropdownRow(null)}></div>
-                                              <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 shadow-xl rounded-xl z-20 w-64 max-h-48 overflow-y-auto p-2 text-xs" style={{ overscrollBehavior: 'contain' }}>
-                                                {allServices.map((s) => {
-                                                  const isChecked = row.maintenanceTypes?.includes(s.name);
-                                                  return (
-                                                    <label key={`${s.id}-${s.name}`} className="flex items-center gap-2.5 p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg cursor-pointer font-bold text-gray-700 dark:text-gray-300">
-                                                      <input type="checkbox" checked={isChecked} onChange={() => { const newTypes = isChecked ? row.maintenanceTypes.filter((t) => t !== s.name) : [...(row.maintenanceTypes || []), s.name]; handleUpdateRow(idx, "maintenanceTypes", newTypes); }} className="rounded text-teal-655 focus:ring-teal-500 w-3.5 h-3.5" />
-                                                      <span className="flex-1 text-right">{s.name}</span>
-                                                    </label>
-                                                  );
-                                                })}
+                                              <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 shadow-xl rounded-xl z-20 w-64 p-2 text-xs flex flex-col gap-2">
+                                                <input 
+                                                  type="text" 
+                                                  placeholder="ابحث عن نوع صيانة..." 
+                                                  value={maintenanceSearchQuery}
+                                                  onChange={(e) => setMaintenanceSearchQuery(e.target.value)}
+                                                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 outline-none text-gray-800 dark:text-gray-200" 
+                                                  autoFocus
+                                                />
+                                                <div className="max-h-48 overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
+                                                  {allServices.filter(s => s.name.toLowerCase().includes(maintenanceSearchQuery.toLowerCase())).map((s) => {
+                                                    const isChecked = row.maintenanceTypes?.includes(s.name);
+                                                    return (
+                                                      <label key={`${s.id}-${s.name}`} className="flex items-center gap-2.5 p-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg cursor-pointer font-bold text-gray-700 dark:text-gray-300">
+                                                        <input type="checkbox" checked={isChecked} onChange={() => { const newTypes = isChecked ? row.maintenanceTypes.filter((t) => t !== s.name) : [...(row.maintenanceTypes || []), s.name]; handleUpdateRow(idx, "maintenanceTypes", newTypes); }} className="rounded text-teal-655 focus:ring-teal-500 w-3.5 h-3.5" />
+                                                        <span className="flex-1 text-right">{s.name}</span>
+                                                      </label>
+                                                    );
+                                                  })}
+                                                  {maintenanceSearchQuery.trim() !== "" && !allServices.some(s => s.name.toLowerCase() === maintenanceSearchQuery.trim().toLowerCase()) && (
+                                                    <button 
+                                                      type="button" 
+                                                      onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        setNewServiceName(maintenanceSearchQuery); 
+                                                        setShowAddServiceModal(true); 
+                                                        setActiveDropdownRow(null); 
+                                                        setMaintenanceSearchQuery("");
+                                                      }} 
+                                                      className="w-full text-right p-2 mt-1 text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg font-bold flex items-center gap-2 cursor-pointer"
+                                                    >
+                                                      <Plus size={14} /> إضافة "{maintenanceSearchQuery}" كصيانة جديدة
+                                                    </button>
+                                                  )}
+                                                </div>
                                               </div>
                                             </>
                                           )}
                                         </td>
-                                        <td className="p-0 h-full">
-                                          <div onDoubleClick={(e) => { e.currentTarget.style.width = ''; e.currentTarget.style.height = ''; }} className="w-full h-full min-h-[40px] min-w-[50px] resize overflow-hidden flex flex-col group/field">
-                                            <textarea rows={1} value={row.faultReason || ""} onChange={(e) => handleUpdateRow(idx, "faultReason", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 2)} data-row={idx} data-col={2} placeholder="سبب العطل..." className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-orange-700 dark:text-orange-400 border-0 outline-none focus:ring-1 focus:ring-orange-400 font-semibold placeholder:text-gray-300 dark:placeholder:text-gray-600 resize-none overflow-y-auto" />
+                                        <td className="p-0 align-top">
+                                          <div className="flex flex-col w-full h-full justify-between min-h-[40px]">
+                                            {row.maintenanceTypes?.length > 0 && (
+                                              <div className="flex flex-col text-[11px] text-gray-500 dark:text-gray-400 text-center p-2 gap-1 font-bold select-none">
+                                                {row.maintenanceTypes.map(t => {
+                                                  const service = allServices.find(s => s.name === t);
+                                                  return <span key={t} className="h-[26px] flex items-center justify-center">{service ? service.priceUs : 0}</span>;
+                                                })}
+                                              </div>
+                                            )}
+                                            <input type="number" value={row.priceUs === 0 && !row.maintenanceTypes?.length ? "" : row.priceUs} onChange={(e) => handleUpdateRow(idx, "priceUs", parseFloat(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, idx, 5)} data-row={idx} data-col={5} className={`w-full h-8 mt-auto px-2 bg-white/40 dark:bg-black/20 text-sm text-center border-0 outline-none font-black text-indigo-650 dark:text-indigo-400 border-t border-gray-200/50 dark:border-gray-700/50 ${hasPriceWarning ? "bg-rose-50/50 dark:bg-rose-955/20 text-rose-500" : ""}`} title="السعر علينا لهذا الصنف" />
+                                          </div>
+                                        </td>
+                                        <td className="p-0 align-top">
+                                          <div className="flex flex-col w-full h-full justify-between min-h-[40px]">
+                                            {row.maintenanceTypes?.length > 0 && (
+                                              <div className="flex flex-col text-[11px] text-gray-500 dark:text-gray-400 text-center p-2 gap-1 font-bold select-none">
+                                                {row.maintenanceTypes.map(t => {
+                                                  const service = allServices.find(s => s.name === t);
+                                                  return <span key={t} className="h-[26px] flex items-center justify-center">{service ? service.priceDoc : 0}</span>;
+                                                })}
+                                              </div>
+                                            )}
+                                            <input type="number" value={row.priceDoc === 0 && !row.maintenanceTypes?.length ? "" : row.priceDoc} onChange={(e) => handleUpdateRow(idx, "priceDoc", parseFloat(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, idx, 6)} data-row={idx} data-col={6} className={`w-full h-8 mt-auto px-2 bg-white/40 dark:bg-black/20 text-sm text-center border-0 outline-none font-black text-emerald-650 dark:text-emerald-455 border-t border-gray-200/50 dark:border-gray-700/50 ${hasPriceWarning ? "bg-rose-50/50 dark:bg-rose-955/20 text-rose-500" : ""}`} title="إجمالي الدكتور لهذا الصنف" />
                                           </div>
                                         </td>
                                         <td className="p-0 h-full">
-                                          <div onDoubleClick={(e) => { e.currentTarget.style.width = ''; e.currentTarget.style.height = ''; }} className="w-full h-full min-h-[40px] min-w-[50px] resize overflow-hidden flex flex-col group/field">
-                                            <textarea rows={1} value={row.contraStatus || ""} onChange={(e) => handleUpdateRow(idx, "contraStatus", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 3)} data-row={idx} data-col={3} placeholder="حالة الكونترا..." className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-purple-700 dark:text-purple-400 border-0 outline-none focus:ring-1 focus:ring-purple-400 font-semibold placeholder:text-gray-300 dark:placeholder:text-gray-600 resize-none overflow-y-auto" />
+                                          <div className="w-full h-full min-h-[40px] min-w-[50px] flex flex-col group/field">
+                                            <input type="text" list="faultReason-suggestions" value={row.faultReason || ""} onChange={(e) => handleUpdateRow(idx, "faultReason", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 4)} data-row={idx} data-col={4} placeholder="سبب العطل..." className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-orange-700 dark:text-orange-400 border-0 outline-none focus:ring-1 focus:ring-orange-400 font-semibold placeholder:text-gray-300 dark:placeholder:text-gray-600" />
                                           </div>
                                         </td>
-                                        <td className="p-0">
-                                          <input type="number" value={row.priceUs || ""} onChange={(e) => handleUpdateRow(idx, "priceUs", parseFloat(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, idx, 5)} data-row={idx} data-col={5} className={`w-full h-10 px-2 bg-transparent text-sm text-center border-0 outline-none font-bold text-indigo-650 dark:text-indigo-400 ${hasPriceWarning ? "bg-rose-50/50 dark:bg-rose-955/20 text-rose-500" : ""}`} />
+                                        <td className="p-0 h-full">
+                                          <div className="w-full h-full min-h-[40px] min-w-[50px] flex flex-col group/field">
+                                            <input type="text" list="contraStatus-suggestions" value={row.contraStatus || ""} onChange={(e) => handleUpdateRow(idx, "contraStatus", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 5)} data-row={idx} data-col={5} placeholder="حالة الكونترا..." className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-purple-700 dark:text-purple-400 border-0 outline-none focus:ring-1 focus:ring-purple-400 font-semibold placeholder:text-gray-300 dark:placeholder:text-gray-600" />
+                                          </div>
                                         </td>
-                                        <td className="p-0">
-                                          <input type="number" value={row.priceDoc || ""} onChange={(e) => handleUpdateRow(idx, "priceDoc", parseFloat(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, idx, 6)} data-row={idx} data-col={6} className={`w-full h-10 px-2 bg-transparent text-sm border-0 outline-none text-center font-bold text-emerald-650 dark:text-emerald-455 ${hasPriceWarning ? "bg-rose-50/50 dark:bg-rose-955/20 text-rose-500" : ""}`} />
-                                        </td>
+
                                         <td className="p-0 h-full">
                                           <div onDoubleClick={(e) => { e.currentTarget.style.width = ''; e.currentTarget.style.height = ''; }} className="w-full h-full min-h-[40px] min-w-[50px] resize overflow-hidden flex flex-col group/field">
                                             <textarea rows={1} value={row.notes} onChange={(e) => handleUpdateRow(idx, "notes", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 7)} data-row={idx} data-col={7} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none resize-none overflow-y-auto" />
@@ -512,19 +659,21 @@ export default function MaintenancePage() {
                                       </tr>
                                     );
                                   })}
+                                  <tr>
+                                    <td colSpan="11" className="p-0 border-t border-gray-100 dark:border-gray-800/60">
+                                      <button type="button" onClick={handleAddRow} className="w-full py-2.5 flex justify-center items-center text-teal-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-colors cursor-pointer group" title="إضافة هاندبيس آخر">
+                                        <div className="bg-teal-100 dark:bg-teal-900/40 p-1 rounded-full group-hover:scale-110 transition-transform">
+                                          <Plus size={16} strokeWidth={3} />
+                                        </div>
+                                      </button>
+                                    </td>
+                                  </tr>
                                 </tbody>
                               </table>
                             </div>
 
                             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-1">
                               <div className="flex gap-2 flex-wrap">
-                                <button
-                                  type="button"
-                                  onClick={handleAddRow}
-                                  className="px-4 py-2.5 bg-teal-50 hover:bg-teal-100 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                                >
-                                  <Plus size={14} /> إضافة هاندبيس آخر
-                                </button>
                                 <button
                                   type="button"
                                   onClick={() => setShowAddServiceModal(true)}
@@ -543,6 +692,13 @@ export default function MaintenancePage() {
                                 <div className="px-5 py-3.5 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/60 dark:to-emerald-900/40 flex flex-col items-center gap-0.5">
                                   <span className="text-[10px] font-semibold text-emerald-500 dark:text-emerald-400 tracking-wide">إجمالي الدكتور</span>
                                   <span className="text-base font-black text-emerald-700 dark:text-emerald-300 leading-none">{totalPriceDoc} <span className="text-[10px] font-bold">ج.م</span></span>
+                                </div>
+                                <div className="w-px self-stretch bg-gray-200 dark:bg-gray-700"></div>
+                                <div className="px-4 py-3.5 bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-950/60 dark:to-rose-900/40 flex flex-col items-center gap-1 min-w-[110px]">
+                                  <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 tracking-wide">خصم شامل للدكتور</span>
+                                  <div className="relative w-full">
+                                    <input type="number" value={globalDiscount === 0 ? "" : globalDiscount} onChange={(e) => setGlobalDiscount(parseFloat(e.target.value) || 0)} placeholder="0" className="w-full bg-white/70 dark:bg-black/30 border border-rose-200 dark:border-rose-800 rounded px-2 py-1 text-center font-black text-rose-600 dark:text-rose-400 outline-none focus:border-rose-400 text-sm" />
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -567,33 +723,6 @@ export default function MaintenancePage() {
                               </button>
                             </div>
                           </motion.div>
-                        ) : (
-                          <motion.div
-                            key="receipt-placeholder"
-                            variants={tableVariants}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
-                            className="space-y-4"
-                          >
-                            <div className="py-12 text-center text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-200 dark:border-gray-800/80 rounded-2xl text-xs font-semibold">
-                              الرجاء اختيار الدكتور.
-                            </div>
-                            <div className="flex justify-end pt-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsReceiptMode(false);
-                                  setSelectedDocId("");
-                                  setReceiptRows([{ toolName: "", serial: "", maintenanceTypes: [], priceUs: 0, priceDoc: 0, notes: "" }]);
-                                }}
-                                className="px-5 py-3.5 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-rose-500/20 cursor-pointer h-[46px]"
-                              >
-                                <X size={14} /> إلغاء
-                              </button>
-                            </div>
-                          </motion.div>
-                        )}
                       </AnimatePresence>
                     </div>
                   </motion.form>

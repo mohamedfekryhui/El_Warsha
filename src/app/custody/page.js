@@ -228,7 +228,7 @@ export default function CustodyPage() {
                 عهدة الفروع والمعدات <Package className="text-indigo-500" size={28} />
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">
-                متابعة العهد والأجهزة والمعدات المستديمة المسلمة لكل فرع وقيمتها الإجمالية.
+                متابعة العهد الكونترات المسلمة لكل فرع وقيمتها الإجمالية.
               </p>
             </div>
             <button

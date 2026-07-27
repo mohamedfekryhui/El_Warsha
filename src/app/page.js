@@ -52,7 +52,7 @@ export default function Home() {
 
     const doctorsCount = stats.doctorsCount || 0;
     const activeCount = stats.activeOrdersCount || 0;
-    const msg = `قم بإنشاء تقرير تحليل ذكي للوحة التحكم. عدد الأطباء المسجلين: ${doctorsCount}، عدد الأجهزة قيد الصيانة: ${activeCount}.`;
+    const msg = `قم بإنشاء تقرير تحليل ذكي للوحة التحكم. عدد الأطباء المسجلين: ${doctorsCount}، عدد الكونترات قيد الصيانة: ${activeCount}.`;
 
     try {
       const res = await fetch(API_ENDPOINTS.aiChat, {
@@ -160,7 +160,7 @@ export default function Home() {
             <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
              نظرة عامة <Sparkles className="text-amber-500 animate-pulse" size={24} />
             </h1>
-            <p className="text-xs font-semibold text-gray-400 mt-1">الخلاصة الإحصائية والتحليل الذكي لبيانات الورشة والأرباح.</p>
+            <p className="text-xs font-semibold text-gray-400 mt-1">الخلاصة الإحصائية والتحليل لبيانات الورشة والأرباح.</p>
           </div>
           
           {/* زر حلِّل لي المعاملات وولد لي تقرير بالتصميم الجديد وشاين أنيميشن */}
@@ -187,7 +187,7 @@ export default function Home() {
               <div className="absolute inset-2 rounded-full border-4 border-transparent border-b-purple-500 border-l-purple-500 animate-spin [animation-duration:1.5s]"></div>
               <div className="absolute inset-4 bg-indigo-500/10 rounded-full animate-pulse"></div>
             </div>
-            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 animate-pulse">جاري التحميل لوحة التحكم الذكية...</span>
+            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 animate-pulse">جاري التحميل لوحة التحكم ...</span>
           </div>
         ) : (
           <motion.div
@@ -276,7 +276,7 @@ export default function Home() {
                     <div className="absolute inset-4 bg-indigo-500/10 rounded-full animate-pulse"></div>
                   </div>
                   <span className="text-xs font-bold text-gray-500 dark:text-gray-400 animate-pulse">
-                    {isDashChatMode ? "جاري توليد الرد الجديد..." : "يقوم المساعد الذكي بتحليل المعاملات وحساب نسب الأرباح..."}
+                    {isDashChatMode ? "جاري توليد الرد الجديد..." : "يقوم المساعد بتحليل المعاملات وحساب نسب الأرباح..."}
                   </span>
                 </div>
               ) : (

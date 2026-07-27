@@ -10,9 +10,6 @@ export function useDoctorsData() {
 
   // States الخاصة بالفورمة
   const [docName, setDocName] = useState("");
-  const [docPhone, setDocPhone] = useState("");
-  const [docAddr1, setDocAddr1] = useState("");
-  const [docAddr2, setDocAddr2] = useState("");
 
   const fetchDoctors = async () => {
     const branchIdStr = String(currentBranchId);
@@ -55,18 +52,12 @@ export function useDoctorsData() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: docName,
-          phone: docPhone,
-          address1: docAddr1,
-          address2: docAddr2,
         }),
       });
 
       if (res.ok) {
         alert("تم تسجيل الدكتور بنجاح! 🩺");
         setDocName("");
-        setDocPhone("");
-        setDocAddr1("");
-        setDocAddr2("");
         fetchDoctors(); // تحديث الجدول فوراً
       }
     } catch (error) {
@@ -80,12 +71,6 @@ export function useDoctorsData() {
     loading,
     docName,
     setDocName,
-    docPhone,
-    setDocPhone,
-    docAddr1,
-    setDocAddr1,
-    docAddr2,
-    setDocAddr2,
     handleAddDoctor,
   };
 }

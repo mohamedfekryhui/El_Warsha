@@ -39,8 +39,7 @@ export default function DoctorDetailPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // حالة التحكم في تفاصيل بيانات العيادة وهاتف الطبيب
-  const [showContactCard, setShowContactCard] = useState(false);
+
   // حالة التحكم في مودال تفاصيل الطلب المختار
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -195,15 +194,34 @@ export default function DoctorDetailPage() {
         const docIdNum = parseInt(id);
         const branchIdStr = String(currentBranchId);
         
-        const [docRes, repRes, allOrdersRes] = await Promise.all([
-          fetch(API_ENDPOINTS.doctorById(branchIdStr, docIdNum)).catch(() => ({ json: async () => null })),
-          fetch(API_ENDPOINTS.financialRecords).catch(() => ({ json: async () => [] })),
-          fetch(API_ENDPOINTS.ordersByBranch(branchIdStr)).catch(() => ({ json: async () => [] })) // GET list of all orders
-        ]);
+        const safeFetchJson = async (url) => {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            const text = await res.text();
+            return text ? JSON.parse(text) : null;
+          } catch (e) {
+            return null;
+          }
+        };
 
-        const docData = await docRes.json();
-        const reportsListRaw = await repRes.json();
-        const allOrdersRaw = await allOrdersRes.json();
+        // 1. Try to fetch doctor by ID first
+        let docData = await safeFetchJson(API_ENDPOINTS.doctorById(branchIdStr, docIdNum));
+        
+        // Fallback: If doctor by ID fails, fetch all doctors and find by ID
+        if (!docData || docData.status) {
+          const allDocs = await safeFetchJson(API_ENDPOINTS.doctorsByBranch(branchIdStr));
+          if (Array.isArray(allDocs)) {
+            docData = allDocs.find(d => d.id === docIdNum) || null;
+          } else {
+            docData = null;
+          }
+        }
+
+        const [reportsListRaw, allOrdersRaw] = await Promise.all([
+          safeFetchJson(API_ENDPOINTS.financialRecords),
+          safeFetchJson(API_ENDPOINTS.ordersByBranch(branchIdStr))
+        ]);
 
         if (docData) {
           setDoctor(docData);
@@ -274,7 +292,7 @@ export default function DoctorDetailPage() {
             <div className="absolute inset-2 rounded-full border-4 border-transparent border-b-purple-500 border-l-purple-500 animate-spin [animation-duration:1.5s]"></div>
             <div className="absolute inset-4 bg-indigo-500/10 rounded-full animate-pulse"></div>
           </div>
-          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 animate-pulse">جاري تحميل ملف الطبيب الذكي...</span>
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 animate-pulse">جاري تحميل ملف الدكتور ...</span>
         </main>
       </div>
     );
@@ -352,79 +370,7 @@ export default function DoctorDetailPage() {
               </div>
             </div>
 
-            {/* زر وزر قائمة منسدلة جانب الاسم لعرض بيانات التواصل */}
-            <div className="relative">
-              <button
-                onClick={() => setShowContactCard(!showContactCard)}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-500/10"
-              >
-                {showContactCard ? <X size={14} /> : <User size={14} />}
-                {showContactCard ? "إخفاء التفاصيل" : "عرض بيانات الطبيب"}
-              </button>
 
-              <AnimatePresence>
-                {showContactCard && (
-                  <>
-                    {/* خلفية شفافة تغلق القائمة المنسدلة عند الضغط بالخارج */}
-                    <div className="fixed inset-0 z-30" onClick={() => setShowContactCard(false)}></div>
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      transition={{ duration: 0.18 }}
-                      className="absolute left-0 mt-3 w-80 bg-white dark:bg-[#1E293B] border border-gray-150 dark:border-gray-800 shadow-2xl p-6 z-40 space-y-4 text-right cursor-default rounded-3xl"
-                    >
-                      <h4 className="font-black text-sm text-indigo-600 dark:text-indigo-400 border-b border-gray-100 dark:border-gray-800 pb-2 mb-2 flex items-center gap-1.5">
-                        <User size={16} /> بيانات العميل والتواصل (اضغط للنسخ)
-                      </h4>
-                      <div
-                        onClick={() => copyToClipboard(doctor.phone)}
-                        className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100/50 dark:border-gray-800/40 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
-                        title="اضغط لنسخ رقم الهاتف"
-                      >
-                        <Phone className="text-gray-400 shrink-0" size={16} />
-                        <div>
-                          <span className="block text-[9px] font-bold text-gray-400">رقم الهاتف</span>
-                          <span dir="ltr" className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                            {doctor.phone}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div
-                        onClick={() => copyToClipboard(doctor.address1)}
-                        className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100/50 dark:border-gray-800/40 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
-                        title="اضغط لنسخ العنوان الأساسي"
-                      >
-                        <MapPin className="text-gray-400 shrink-0 mt-0.5" size={16} />
-                        <div>
-                          <span className="block text-[9px] font-bold text-gray-400">العنوان الأساسي</span>
-                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 leading-relaxed">
-                            {doctor.address1}
-                          </span>
-                        </div>
-                      </div>
-
-                      {doctor.address2 && (
-                        <div
-                          onClick={() => copyToClipboard(doctor.address2)}
-                          className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-100/50 dark:border-gray-800/40 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
-                          title="اضغط لنسخ العنوان البديل"
-                        >
-                          <MapPin className="text-gray-400 shrink-0 mt-0.5" size={16} />
-                          <div>
-                            <span className="block text-[9px] font-bold text-gray-400">العنوان البديل / الشحن</span>
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 leading-relaxed">
-                              {doctor.address2}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -527,15 +473,16 @@ export default function DoctorDetailPage() {
                 </div>
               </div>
 
-              {/* 1. أجهزة قيد الصيانة حالياً */}
-              <div className="bg-white dark:bg-[#1E293B] p-8 rounded-[2rem] border border-gray-100 dark:border-gray-800/60 shadow-sm">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {/* 1. أجهزة قيد الصيانة حالياً */}
+                <div className="bg-white dark:bg-[#1E293B] p-8 rounded-[2rem] border border-gray-100 dark:border-gray-800/60 shadow-sm">
                 <h3 className="font-bold text-lg mb-6 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                  <Clock size={20} className="text-amber-500 animate-pulse" /> أجهزة قيد الصيانة والشحن حالياً ({activeOrdersList.length})
+                  <Clock size={20} className="text-amber-500 animate-pulse" /> كونترات قيد الصيانة والشحن حالياً ({activeOrdersList.length})
                 </h3>
 
                 {activeOrdersList.length === 0 ? (
                   <div className="text-center py-10 text-gray-400 dark:text-gray-500 text-sm">
-                    لا توجد أجهزة قيد الصيانة حالياً لهذا الطبيب.
+                    لا توجد كونترات قيد الصيانة حالياً لهذا الطبيب.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -618,12 +565,12 @@ export default function DoctorDetailPage() {
               {/* 2. سجل الأجهزة المسلمة سابقاً */}
               <div className="bg-white dark:bg-[#1E293B] p-8 rounded-[2rem] border border-gray-100 dark:border-gray-800/60 shadow-sm">
                 <h3 className="font-bold text-lg mb-6 text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                  <CheckCircle2 size={20} className="text-emerald-500" /> سجل الأجهزة المسلمة سابقاً ({pastOrdersList.length})
+                  <CheckCircle2 size={20} className="text-emerald-500" /> سجل الكونترات ({pastOrdersList.length})
                 </h3>
 
                 {pastOrdersList.length === 0 ? (
                   <div className="text-center py-10 text-gray-400 dark:text-gray-500 text-sm">
-                    لا يوجد سجل أجهزة مستلمة سابقاً لهذا الطبيب.
+                    لا يوجد سجل كونترات مستلمة سابقاً لهذا الدكتور.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -701,6 +648,7 @@ export default function DoctorDetailPage() {
                     </table>
                   </div>
                 )}
+              </div>
               </div>
             </motion.div>
           </div>

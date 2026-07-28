@@ -8,6 +8,7 @@ import { useRef, useCallback } from "react";
  */
 export function useResizableColumns(initialWidths) {
   const colWidths = useRef([...initialWidths]);
+  const originalWidths = useRef([...initialWidths]);
   const thRefs = useRef([]);
 
   const startResize = useCallback((e, colIndex) => {
@@ -36,7 +37,20 @@ export function useResizableColumns(initialWidths) {
 
   const setThRef = useCallback((el, index) => {
     thRefs.current[index] = el;
+    if (el) {
+      el.style.width = `${colWidths.current[index]}px`;
+      el.style.minWidth = `${colWidths.current[index]}px`;
+    }
   }, []);
 
-  return { startResize, setThRef };
+  const resetResize = useCallback((colIndex) => {
+    const originalWidth = originalWidths.current[colIndex];
+    colWidths.current[colIndex] = originalWidth;
+    if (thRefs.current[colIndex]) {
+      thRefs.current[colIndex].style.width = `${originalWidth}px`;
+      thRefs.current[colIndex].style.minWidth = `${originalWidth}px`;
+    }
+  }, []);
+
+  return { startResize, setThRef, resetResize };
 }

@@ -104,20 +104,48 @@ export function useMaintenanceData() {
       const updated = [...prev];
       updated[index][field] = value;
       
-      // تعبئة وتجميع الأسعار تلقائياً إذا تغيرت قائمة الأعطال/الصيانات
-      if (field === "maintenanceTypes") {
-        const selectedList = value || [];
+      // تعبئة وتجميع الأسعار تلقائياً إذا تغيرت قائمة الأعطال/الصيانات أو الأسعار المخصصة
+      if (field === "maintenanceTypes" || field === "customPrices") {
+        const selectedList = (field === "maintenanceTypes" ? value : updated[index].maintenanceTypes) || [];
+        const customPrices = (field === "customPrices" ? value : updated[index].customPrices) || {};
         let sumUs = 0;
         let sumDoc = 0;
-         selectedList.forEach((serviceName) => {
-           const service = allServices.find((s) => s.name === serviceName);
-           if (service) {
-             sumUs += parseFloat(service.priceUs || 0);
-             sumDoc += parseFloat(service.priceDoc || 0);
-           }
-         });
-         updated[index].priceUs = sumUs;
-         updated[index].priceDoc = sumDoc;
+        let sumCom = 0;
+        
+        selectedList.forEach((serviceName) => {
+          const service = allServices.find((s) => s.name === serviceName);
+          const cp = customPrices[serviceName] || {};
+          const qty = cp.qty || 1;
+          
+          let pUs = 0;
+          if (cp.priceUs !== undefined && cp.priceUs !== "") {
+            pUs = parseFloat(cp.priceUs) || 0;
+          } else if (service) {
+            pUs = parseFloat(service.priceUs || 0);
+          }
+          
+          let pDoc = 0;
+          if (cp.priceDoc !== undefined && cp.priceDoc !== "") {
+            pDoc = parseFloat(cp.priceDoc) || 0;
+          } else if (service) {
+            pDoc = parseFloat(service.priceDoc || 0);
+          }
+          
+          let pCom = 0;
+          if (cp.priceCom !== undefined && cp.priceCom !== "") {
+            pCom = parseFloat(cp.priceCom) || 0;
+          } else if (service) {
+            pCom = parseFloat(service.commercialPrice || 0);
+          }
+          
+          sumUs += (pUs * qty);
+          sumDoc += (pDoc * qty);
+          sumCom += (pCom * qty);
+        });
+        
+        updated[index].priceUs = sumUs;
+        updated[index].priceDoc = sumDoc;
+        updated[index].priceCom = sumCom;
       }
       return updated;
     });
@@ -195,7 +223,7 @@ export function useMaintenanceData() {
     }
   };
 
-  const handleSubmittingReceipt = async (e) => {
+  const handleSubmittingReceipt = async (e, shippingPrice = 0) => {
     e.preventDefault();
     if (!selectedDocId) {
       alert("الرجاء اختيار الطبيب أولاً!");
@@ -218,18 +246,43 @@ export function useMaintenanceData() {
         if (row.maintenanceTypes && row.maintenanceTypes.length > 0) {
           items = row.maintenanceTypes.map((t) => {
             const service = allServices.find(s => s.name === t);
-            const wPrice = service ? parseFloat(service.priceUs || 0) : 0;
-            const dPrice = service ? parseFloat(service.priceDoc || 0) : 0;
-            sumUs += wPrice;
-            sumDoc += dPrice;
+            const cp = row.customPrices?.[t] || {};
+            const qty = cp.qty || 1;
+            
+            let wPrice = 0;
+            if (cp.priceUs !== undefined && cp.priceUs !== "") {
+              wPrice = parseFloat(cp.priceUs) || 0;
+            } else if (service) {
+              wPrice = parseFloat(service.priceUs || 0);
+            }
+            
+            let dPrice = 0;
+            if (cp.priceDoc !== undefined && cp.priceDoc !== "") {
+              dPrice = parseFloat(cp.priceDoc) || 0;
+            } else if (service) {
+              dPrice = parseFloat(service.priceDoc || 0);
+            }
+            
+            let cPrice = 0;
+            if (cp.priceCom !== undefined && cp.priceCom !== "") {
+              cPrice = parseFloat(cp.priceCom) || 0;
+            } else if (service) {
+              cPrice = parseFloat(service.commercialPrice || 0);
+            }
+            
+            sumUs += (wPrice * qty);
+            sumDoc += (dPrice * qty);
+            
+            const selectedDoctor = doctors.find(d => d.id === selectedDocId);
+            const isCommercialDoc = selectedDoctor?.isCommercial === true;
             
             return {
               inventoryId: service ? service.id : null,
-              quantity: 1,
+              quantity: qty,
               itemName: t,
               itemType: service ? service.type : "صيانة",
               workshopPrice: wPrice,
-              doctorPrice: dPrice
+              doctorPrice: isCommercialDoc ? cPrice : dPrice
             };
           });
 
@@ -281,28 +334,23 @@ export function useMaintenanceData() {
         });
       }
 
-      const wantsShipping = window.confirm("هل ترغب في إضافة مصاريف شحن لهذه الفاتورة؟");
-      if (wantsShipping) {
-        const priceStr = window.prompt("أدخل قيمة الشحن (ج.م):", "100");
-        if (priceStr !== null) {
-          const sPrice = parseFloat(priceStr) || 0;
-          handpiecesPayload.push({
-            handpieceName: "مصاريف شحن",
-            handpieceType: 1,
-            serialNumber: "",
-            contraCondition: null,
-            failureReason: null,
-            notes: "تكلفة توصيل الفاتورة",
-            items: [{
-               inventoryId: null,
-               quantity: 1,
-               itemName: "شحن",
-               itemType: "أخرى",
-               workshopPrice: 0,
-               doctorPrice: sPrice
-            }]
-          });
-        }
+      if (shippingPrice > 0) {
+        handpiecesPayload.push({
+          handpieceName: "مصاريف شحن",
+          handpieceType: 1,
+          serialNumber: "",
+          contraCondition: null,
+          failureReason: null,
+          notes: "تكلفة توصيل الفاتورة",
+          items: [{
+             inventoryId: null,
+             quantity: 1,
+             itemName: "شحن",
+             itemType: "أخرى",
+             workshopPrice: 0,
+             doctorPrice: parseFloat(shippingPrice) || 0
+          }]
+        });
       }
 
       const payload = {

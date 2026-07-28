@@ -118,9 +118,10 @@ export default function MaintenancePage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReport, setAiReport] = useState("");
   const [undoAction, setUndoAction] = useState(null);
+  const [shippingPrice, setShippingPrice] = useState(0);
 
   // Resizable columns for receipt table (11 cols)
-  const receiptResize = useResizableColumns([36, 160, 160, 100, 160, 100, 110, 80, 80, 140, 44]);
+  const receiptResize = useResizableColumns([36, 100, 160, 100, 160, 100, 110, 110, 80, 80, 140, 44]);
   // Resizable columns for services table (8 cols)
   const servicesResize = useResizableColumns([48, 260, 100, 80, 120, 120, 180, 48]);
 
@@ -317,11 +318,27 @@ export default function MaintenancePage() {
       const prevInput = document.querySelector(`[data-row="${rowIdx - 1}"][data-col="${colIdx}"]`);
       if (prevInput) prevInput.focus();
     } else if (e.key === "ArrowRight") {
+      try {
+        if ((e.target.tagName === 'INPUT' && e.target.type !== 'number') || e.target.tagName === 'TEXTAREA') {
+          if (e.target.selectionStart !== 0 && e.target.selectionStart !== null) return;
+        }
+      } catch (err) {}
       const prevCol = document.querySelector(`[data-row="${rowIdx}"][data-col="${colIdx - 1}"]`);
-      if (prevCol) prevCol.focus();
+      if (prevCol) {
+        e.preventDefault();
+        prevCol.focus();
+      }
     } else if (e.key === "ArrowLeft") {
+      try {
+        if ((e.target.tagName === 'INPUT' && e.target.type !== 'number') || e.target.tagName === 'TEXTAREA') {
+          if (e.target.selectionEnd !== e.target.value.length && e.target.selectionEnd !== null) return;
+        }
+      } catch (err) {}
       const nextCol = document.querySelector(`[data-row="${rowIdx}"][data-col="${colIdx + 1}"]`);
-      if (nextCol) nextCol.focus();
+      if (nextCol) {
+        e.preventDefault();
+        nextCol.focus();
+      }
     }
   };
 
@@ -335,7 +352,7 @@ export default function MaintenancePage() {
       alert("⚠️ تنبيه: يوجد معدة في الفاتورة سعر الطبيب فيها أقل من سعر الورشة. يرجى تصحيح الأسعار قبل الحفظ.");
       return;
     }
-    handleSubmittingReceipt(e);
+    handleSubmittingReceipt(e, shippingPrice);
   };
 
   if (loading) {
@@ -439,10 +456,7 @@ export default function MaintenancePage() {
                               const docName = doc ? doc.name : "غير محدد";
                               const d = new Date();
                               const dateStr = `${d.getDate()}-${d.getMonth() + 1}`;
-                              const shippingStr = window.prompt("أدخل مصاريف الشحن لطباعتها في الفاتورة (أو 0 إذا كانت مجانية):", "0");
-                              if (shippingStr === null) return;
-                              const shippingPrice = parseFloat(shippingStr) || 0;
-                              exportToWord(receiptRows, `${docName} ${dateStr}`, docName, shippingPrice, globalDiscount);
+                              exportToWord(receiptRows, `${docName} ${dateStr}`, docName, shippingPrice, globalDiscount, allServices);
                             }}
                             className="shrink-0 px-4 py-2.5 rounded-2xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
                           >
@@ -500,14 +514,25 @@ export default function MaintenancePage() {
 
                                 <thead className="sticky top-0 z-10 shadow-sm bg-gray-100 dark:bg-gray-800">
                                   <tr className="text-gray-600 dark:text-gray-400 divide-x divide-x-reverse divide-gray-200 dark:divide-gray-800">
-                                    {["", "نوع الهاندبيس", "اسم الهاندبيس", "الرقم التسلسلي S/N", "نوع الصيانة", "السعر علينا", "سعر الدكتور", "سبب العطل", "حالة الكونترا", "ملاحظات", "حذف"].map((label, i) => (
-                                      <th
-                                        key={i}
-                                        className="p-2 text-xs font-bold select-none relative group text-center"
-                                      >
-                                        <span className={i === 7 ? "text-orange-600 dark:text-orange-400" : i === 8 ? "text-purple-600 dark:text-purple-400" : ""}>{label}</span>
-                                      </th>
-                                    ))}
+                                    {["", "نوع الهاندبيس", "اسم الهاندبيس", "الرقم التسلسلي S/N", "نوع الصيانة", "السعر علينا", "سعر تجاري", "سعر الدكتور", "سبب العطل", "حالة الكونترا", "ملاحظات", "حذف"].map((label, i) => {
+                                      const isCommercialDoc = doctors.find(d => d.id === selectedDocId)?.isCommercial === true;
+                                      if (i === 6 && !isCommercialDoc) return null;
+                                      return (
+                                        <th
+                                          key={i}
+                                          ref={(el) => receiptResize.setThRef(el, i)}
+                                          className="p-2 text-xs font-bold select-none relative group text-center"
+                                        >
+                                          <span className={i === 8 ? "text-orange-600 dark:text-orange-400" : i === 9 ? "text-purple-600 dark:text-purple-400" : ""}>{label}</span>
+                                          <div
+                                            onMouseDown={(e) => receiptResize.startResize(e, i)}
+                                            onDoubleClick={() => receiptResize.resetResize(i)}
+                                            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-teal-500/50 z-20"
+                                            title="اسحب لتغيير العرض، اضغط مرتين للعودة للحجم الافتراضي"
+                                          />
+                                        </th>
+                                      );
+                                    })}
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-[#151F32]">
@@ -524,6 +549,8 @@ export default function MaintenancePage() {
                                               <select
                                                 value={row.handpieceType || "هاي"}
                                                 onChange={(e) => handleUpdateRow(idx, "handpieceType", e.target.value)}
+                                                onKeyDown={(e) => handleKeyDown(e, idx, 1)}
+                                                data-row={idx} data-col={1}
                                                 className={`appearance-none w-full pl-6 pr-2 py-1.5 bg-transparent text-sm border-0 outline-none focus:ring-1 focus:ring-teal-500 font-bold cursor-pointer ${getTypeColor(row.handpieceType || "هاي")}`}
                                               >
                                                 {["هاي", "لو", "زراعة", "روتاري", "ادابتور", "سكيلر", "جهاز موتور", "استريت"].map(t => (
@@ -532,41 +559,53 @@ export default function MaintenancePage() {
                                               </select>
                                               <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-[9px] text-gray-400 opacity-50 group-hover/field:opacity-100 transition-opacity">▼</div>
                                             </div>
-                                            {(row.handpieceType === "استريت" || row.handpieceType === "جهاز موتور") && (
-                                              <div className="relative w-full border-t border-gray-200/50 dark:border-gray-700/50 pt-1">
-                                                <select
-                                                  value={row.quantity || "1"}
-                                                  onChange={(e) => handleUpdateRow(idx, "quantity", parseInt(e.target.value))}
-                                                  className="appearance-none w-full pl-6 pr-2 py-1 bg-transparent text-xs border-0 outline-none focus:ring-1 focus:ring-teal-500 font-bold cursor-pointer text-gray-600 dark:text-gray-400"
-                                                >
-                                                  {(row.handpieceType === "استريت" ? [1, 2] : [1, 2, 3, 4, 5, 6, 7]).map(n => (
-                                                    <option key={n} value={n} className="bg-white dark:bg-[#1E293B] font-bold text-gray-700 dark:text-gray-300">{n} قطعة</option>
-                                                  ))}
-                                                </select>
-                                                <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-gray-400">▼</div>
-                                              </div>
-                                            )}
                                           </div>
                                         </td>
                                         <td className="p-0 h-full">
                                           <div className="w-full h-full min-h-[40px] min-w-[50px] flex flex-col group/field">
-                                            <input type="text" list="toolName-suggestions" value={row.toolName} onChange={(e) => handleUpdateRow(idx, "toolName", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 1)} data-row={idx} data-col={1} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-teal-500 font-semibold" />
+                                            <input type="text" list="toolName-suggestions" value={row.toolName} onChange={(e) => handleUpdateRow(idx, "toolName", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 2)} data-row={idx} data-col={2} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-teal-500 font-semibold" />
                                           </div>
                                         </td>
                                         <td className="p-0 h-full">
                                           <div onDoubleClick={(e) => { e.currentTarget.style.width = ''; e.currentTarget.style.height = ''; }} className="w-full h-full min-h-[40px] min-w-[50px] resize overflow-hidden flex flex-col group/field">
-                                            <textarea rows={1} value={row.serial} onChange={(e) => handleUpdateRow(idx, "serial", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 2)} data-row={idx} data-col={2} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-teal-500 resize-none overflow-y-auto" />
+                                            <textarea rows={1} value={row.serial} onChange={(e) => handleUpdateRow(idx, "serial", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 3)} data-row={idx} data-col={3} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none focus:ring-1 focus:ring-teal-500 resize-none overflow-y-auto" />
                                           </div>
                                         </td>
                                         <td className="p-0 relative align-top">
-                                          <div className="w-full h-full flex flex-col justify-between min-h-[40px]">
-                                            <button type="button" onClick={(e) => { e.stopPropagation(); setActiveDropdownRow(activeDropdownRow === idx ? null : idx); setMaintenanceSearchQuery(""); }} className="w-full h-full flex-1 text-right text-xs text-gray-700 dark:text-gray-300 focus:outline-none flex flex-col gap-1 items-start cursor-pointer font-bold relative p-2">
-                                              {row.maintenanceTypes?.length > 0 ? (
-                                                row.maintenanceTypes.map(t => <span key={t} className="bg-white/60 dark:bg-black/20 px-1.5 rounded w-full truncate border border-gray-200/40 dark:border-gray-700/50 text-gray-900 dark:text-white h-[26px] flex items-center">{t}</span>)
-                                              ) : (
-                                                <span className="text-gray-400 h-[26px] flex items-center">اختر...</span>
-                                              )}
-                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400">▼</span>
+                                          <div className="w-full h-full flex flex-col gap-1 items-start relative p-2 min-h-[40px]">
+                                            {row.maintenanceTypes?.length > 0 && (
+                                              row.maintenanceTypes.map(t => (
+                                                <div key={t} className="flex items-center gap-1 w-full h-[26px]">
+                                                  <span className="bg-white/60 dark:bg-black/20 px-1.5 rounded flex-1 truncate border border-gray-200/40 dark:border-gray-700/50 text-gray-900 dark:text-white h-full flex items-center">{t}</span>
+                                                  {(t.includes("است") || t.includes("ج")) && (
+                                                    <select
+                                                      value={row.customPrices?.[t]?.qty || 1}
+                                                      onClick={(e) => e.stopPropagation()}
+                                                      onChange={(e) => {
+                                                        const customPrices = row.customPrices || {};
+                                                        handleUpdateRow(idx, "customPrices", {
+                                                          ...customPrices,
+                                                          [t]: { ...(customPrices[t] || {}), qty: parseInt(e.target.value) }
+                                                        });
+                                                      }}
+                                                      className="bg-white dark:bg-[#1E293B] border border-gray-200/40 dark:border-gray-700/50 rounded px-1 h-full text-[10px] outline-none cursor-pointer"
+                                                    >
+                                                      {(t.includes("است") ? [1, 2] : [1, 2, 3, 4, 5, 6, 7]).map(n => <option key={n} value={n}>{n}</option>)}
+                                                    </select>
+                                                  )}
+                                                </div>
+                                              ))
+                                            )}
+                                            <button 
+                                              type="button" 
+                                              onClick={(e) => { e.stopPropagation(); setActiveDropdownRow(activeDropdownRow === idx ? null : idx); setMaintenanceSearchQuery(""); }} 
+                                              onKeyDown={(e) => handleKeyDown(e, idx, 4)} 
+                                              data-row={idx} 
+                                              data-col={4} 
+                                              className="w-full text-right text-xs text-gray-500 dark:text-gray-400 hover:text-teal-600 dark:hover:text-teal-400 focus:outline-none focus:text-teal-600 rounded flex items-center justify-between cursor-pointer font-bold mt-auto h-[26px] bg-transparent"
+                                            >
+                                              <span>{row.maintenanceTypes?.length > 0 ? "اضافة صيانة..." : "اختر..."}</span>
+                                              <span className="text-[9px]">▼</span>
                                             </button>
                                           </div>
                                           {activeDropdownRow === idx && (
@@ -617,40 +656,113 @@ export default function MaintenancePage() {
                                               <div className="flex flex-col text-[11px] text-gray-500 dark:text-gray-400 text-center p-2 gap-1 font-bold select-none">
                                                 {row.maintenanceTypes.map(t => {
                                                   const service = allServices.find(s => s.name === t);
-                                                  return <span key={t} className="h-[26px] flex items-center justify-center">{service ? service.priceUs : 0}</span>;
+                                                  const defaultPrice = service ? service.priceUs : 0;
+                                                  const currentPrice = row.customPrices?.[t]?.priceUs !== undefined ? row.customPrices[t].priceUs : defaultPrice;
+                                                  const qty = row.customPrices?.[t]?.qty || 1;
+                                                  return (
+                                                    <input 
+                                                      key={t}
+                                                      type="number"
+                                                      value={currentPrice * qty}
+                                                      onChange={(e) => {
+                                                        const customPrices = row.customPrices || {};
+                                                        const newTotal = e.target.value === "" ? "" : parseFloat(e.target.value);
+                                                        const newUnitPrice = newTotal === "" ? "" : newTotal / qty;
+                                                        handleUpdateRow(idx, "customPrices", {
+                                                          ...customPrices,
+                                                          [t]: { ...(customPrices[t] || {}), priceUs: newUnitPrice }
+                                                        });
+                                                      }}
+                                                      className="h-[26px] w-full text-center bg-white/50 dark:bg-black/30 border border-gray-200/50 dark:border-gray-700/50 rounded outline-none focus:ring-1 focus:ring-indigo-500 text-indigo-700 dark:text-indigo-400 font-bold"
+                                                    />
+                                                  );
                                                 })}
                                               </div>
                                             )}
-                                            <input type="number" value={row.priceUs === 0 && !row.maintenanceTypes?.length ? "" : row.priceUs} onChange={(e) => handleUpdateRow(idx, "priceUs", parseFloat(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, idx, 5)} data-row={idx} data-col={5} className={`w-full h-8 mt-auto px-2 bg-white/40 dark:bg-black/20 text-sm text-center border-0 outline-none font-black text-indigo-650 dark:text-indigo-400 border-t border-gray-200/50 dark:border-gray-700/50 ${hasPriceWarning ? "bg-rose-50/50 dark:bg-rose-955/20 text-rose-500" : ""}`} title="السعر علينا لهذا الصنف" />
+                                            <input type="number" value={row.priceUs === 0 && !row.maintenanceTypes?.length ? "" : row.priceUs} onChange={(e) => handleUpdateRow(idx, "priceUs", e.target.value === "" ? "" : (parseFloat(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, idx, 5)} data-row={idx} data-col={5} className={`w-full h-8 mt-auto px-2 bg-white/40 dark:bg-black/20 text-sm text-center border-0 outline-none font-black text-indigo-650 dark:text-indigo-400 border-t border-gray-200/50 dark:border-gray-700/50 ${hasPriceWarning ? "bg-rose-50/50 dark:bg-rose-955/20 text-rose-500" : ""}`} title="السعر الإجمالي علينا" />
                                           </div>
                                         </td>
+                                        
+                                        {doctors.find(d => d.id === selectedDocId)?.isCommercial === true && (
+                                          <td className="p-0 align-top">
+                                            <div className="flex flex-col w-full h-full justify-between min-h-[40px]">
+                                              {row.maintenanceTypes?.length > 0 && (
+                                                <div className="flex flex-col text-[11px] text-gray-500 dark:text-gray-400 text-center p-2 gap-1 font-bold select-none">
+                                                  {row.maintenanceTypes.map(t => {
+                                                    const service = allServices.find(s => s.name === t);
+                                                    const defaultPrice = service ? service.commercialPrice || 0 : 0;
+                                                    const currentPrice = row.customPrices?.[t]?.priceCom !== undefined ? row.customPrices[t].priceCom : defaultPrice;
+                                                    const qty = row.customPrices?.[t]?.qty || 1;
+                                                    return (
+                                                      <input 
+                                                        key={t}
+                                                        type="number"
+                                                        value={currentPrice * qty}
+                                                        onChange={(e) => {
+                                                          const customPrices = row.customPrices || {};
+                                                          const newTotal = e.target.value === "" ? "" : parseFloat(e.target.value);
+                                                          const newUnitPrice = newTotal === "" ? "" : newTotal / qty;
+                                                          handleUpdateRow(idx, "customPrices", {
+                                                            ...customPrices,
+                                                            [t]: { ...(customPrices[t] || {}), priceCom: newUnitPrice }
+                                                          });
+                                                        }}
+                                                        className="h-[26px] w-full text-center bg-white/50 dark:bg-black/30 border border-gray-200/50 dark:border-gray-700/50 rounded outline-none focus:ring-1 focus:ring-blue-500 text-blue-700 dark:text-blue-400 font-bold"
+                                                      />
+                                                    );
+                                                  })}
+                                                </div>
+                                              )}
+                                              <input type="number" value={row.priceCom === 0 && !row.maintenanceTypes?.length ? "" : row.priceCom} onChange={(e) => handleUpdateRow(idx, "priceCom", e.target.value === "" ? "" : (parseFloat(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, idx, 6)} data-row={idx} data-col={6} className={`w-full h-8 mt-auto px-2 bg-white/40 dark:bg-black/20 text-sm text-center border-0 outline-none font-black text-blue-650 dark:text-blue-455 border-t border-gray-200/50 dark:border-gray-700/50`} title="السعر التجاري الإجمالي" />
+                                            </div>
+                                          </td>
+                                        )}
                                         <td className="p-0 align-top">
                                           <div className="flex flex-col w-full h-full justify-between min-h-[40px]">
                                             {row.maintenanceTypes?.length > 0 && (
                                               <div className="flex flex-col text-[11px] text-gray-500 dark:text-gray-400 text-center p-2 gap-1 font-bold select-none">
                                                 {row.maintenanceTypes.map(t => {
                                                   const service = allServices.find(s => s.name === t);
-                                                  return <span key={t} className="h-[26px] flex items-center justify-center">{service ? service.priceDoc : 0}</span>;
+                                                  const defaultPrice = service ? service.priceDoc : 0;
+                                                  const currentPrice = row.customPrices?.[t]?.priceDoc !== undefined ? row.customPrices[t].priceDoc : defaultPrice;
+                                                  const qty = row.customPrices?.[t]?.qty || 1;
+                                                  return (
+                                                    <input 
+                                                      key={t}
+                                                      type="number"
+                                                      value={currentPrice * qty}
+                                                      onChange={(e) => {
+                                                        const customPrices = row.customPrices || {};
+                                                        const newTotal = e.target.value === "" ? "" : parseFloat(e.target.value);
+                                                        const newUnitPrice = newTotal === "" ? "" : newTotal / qty;
+                                                        handleUpdateRow(idx, "customPrices", {
+                                                          ...customPrices,
+                                                          [t]: { ...(customPrices[t] || {}), priceDoc: newUnitPrice }
+                                                        });
+                                                      }}
+                                                      className="h-[26px] w-full text-center bg-white/50 dark:bg-black/30 border border-gray-200/50 dark:border-gray-700/50 rounded outline-none focus:ring-1 focus:ring-emerald-500 text-emerald-700 dark:text-emerald-400 font-bold"
+                                                    />
+                                                  );
                                                 })}
                                               </div>
                                             )}
-                                            <input type="number" value={row.priceDoc === 0 && !row.maintenanceTypes?.length ? "" : row.priceDoc} onChange={(e) => handleUpdateRow(idx, "priceDoc", parseFloat(e.target.value) || 0)} onKeyDown={(e) => handleKeyDown(e, idx, 6)} data-row={idx} data-col={6} className={`w-full h-8 mt-auto px-2 bg-white/40 dark:bg-black/20 text-sm text-center border-0 outline-none font-black text-emerald-650 dark:text-emerald-455 border-t border-gray-200/50 dark:border-gray-700/50 ${hasPriceWarning ? "bg-rose-50/50 dark:bg-rose-955/20 text-rose-500" : ""}`} title="إجمالي الدكتور لهذا الصنف" />
+                                            <input type="number" value={row.priceDoc === 0 && !row.maintenanceTypes?.length ? "" : row.priceDoc} onChange={(e) => handleUpdateRow(idx, "priceDoc", e.target.value === "" ? "" : (parseFloat(e.target.value) || 0))} onKeyDown={(e) => handleKeyDown(e, idx, 7)} data-row={idx} data-col={7} className={`w-full h-8 mt-auto px-2 bg-white/40 dark:bg-black/20 text-sm text-center border-0 outline-none font-black text-emerald-650 dark:text-emerald-455 border-t border-gray-200/50 dark:border-gray-700/50 ${hasPriceWarning ? "bg-rose-50/50 dark:bg-rose-955/20 text-rose-500" : ""}`} title="السعر الإجمالي للدكتور" />
                                           </div>
                                         </td>
                                         <td className="p-0 h-full">
                                           <div className="w-full h-full min-h-[40px] min-w-[50px] flex flex-col group/field">
-                                            <input type="text" list="faultReason-suggestions" value={row.faultReason || ""} onChange={(e) => handleUpdateRow(idx, "faultReason", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 4)} data-row={idx} data-col={4} placeholder="سبب العطل..." className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-orange-700 dark:text-orange-400 border-0 outline-none focus:ring-1 focus:ring-orange-400 font-semibold placeholder:text-gray-300 dark:placeholder:text-gray-600" />
+                                            <input type="text" list="faultReason-suggestions" value={row.faultReason || ""} onChange={(e) => handleUpdateRow(idx, "faultReason", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 8)} data-row={idx} data-col={8} placeholder="سبب العطل..." className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-orange-700 dark:text-orange-400 border-0 outline-none focus:ring-1 focus:ring-orange-400 font-semibold placeholder:text-gray-300 dark:placeholder:text-gray-600" />
                                           </div>
                                         </td>
                                         <td className="p-0 h-full">
                                           <div className="w-full h-full min-h-[40px] min-w-[50px] flex flex-col group/field">
-                                            <input type="text" list="contraStatus-suggestions" value={row.contraStatus || ""} onChange={(e) => handleUpdateRow(idx, "contraStatus", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 5)} data-row={idx} data-col={5} placeholder="حالة الكونترا..." className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-purple-700 dark:text-purple-400 border-0 outline-none focus:ring-1 focus:ring-purple-400 font-semibold placeholder:text-gray-300 dark:placeholder:text-gray-600" />
+                                            <input type="text" list="contraStatus-suggestions" value={row.contraStatus || ""} onChange={(e) => handleUpdateRow(idx, "contraStatus", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 9)} data-row={idx} data-col={9} placeholder="حالة الكونترا..." className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-purple-700 dark:text-purple-400 border-0 outline-none focus:ring-1 focus:ring-purple-400 font-semibold placeholder:text-gray-300 dark:placeholder:text-gray-600" />
                                           </div>
                                         </td>
 
                                         <td className="p-0 h-full">
                                           <div onDoubleClick={(e) => { e.currentTarget.style.width = ''; e.currentTarget.style.height = ''; }} className="w-full h-full min-h-[40px] min-w-[50px] resize overflow-hidden flex flex-col group/field">
-                                            <textarea rows={1} value={row.notes} onChange={(e) => handleUpdateRow(idx, "notes", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 7)} data-row={idx} data-col={7} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none resize-none overflow-y-auto" />
+                                            <textarea rows={1} value={row.notes} onChange={(e) => handleUpdateRow(idx, "notes", e.target.value)} onKeyDown={(e) => handleKeyDown(e, idx, 10)} data-row={idx} data-col={10} className="flex-1 w-full px-3 py-2.5 bg-transparent text-sm text-gray-900 dark:text-white border-0 outline-none resize-none overflow-y-auto" />
                                           </div>
                                         </td>
                                         <td className="p-0 text-center">
@@ -660,7 +772,7 @@ export default function MaintenancePage() {
                                     );
                                   })}
                                   <tr>
-                                    <td colSpan="11" className="p-0 border-t border-gray-100 dark:border-gray-800/60">
+                                    <td colSpan="12" className="p-0 border-t border-gray-100 dark:border-gray-800/60">
                                       <button type="button" onClick={handleAddRow} className="w-full py-2.5 flex justify-center items-center text-teal-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-colors cursor-pointer group" title="إضافة هاندبيس آخر">
                                         <div className="bg-teal-100 dark:bg-teal-900/40 p-1 rounded-full group-hover:scale-110 transition-transform">
                                           <Plus size={16} strokeWidth={3} />
@@ -695,9 +807,16 @@ export default function MaintenancePage() {
                                 </div>
                                 <div className="w-px self-stretch bg-gray-200 dark:bg-gray-700"></div>
                                 <div className="px-4 py-3.5 bg-gradient-to-br from-rose-50 to-rose-100 dark:from-rose-950/60 dark:to-rose-900/40 flex flex-col items-center gap-1 min-w-[110px]">
-                                  <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 tracking-wide">خصم شامل للدكتور</span>
+                                  <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 tracking-wide">خصم </span>
                                   <div className="relative w-full">
                                     <input type="number" value={globalDiscount === 0 ? "" : globalDiscount} onChange={(e) => setGlobalDiscount(parseFloat(e.target.value) || 0)} placeholder="0" className="w-full bg-white/70 dark:bg-black/30 border border-rose-200 dark:border-rose-800 rounded px-2 py-1 text-center font-black text-rose-600 dark:text-rose-400 outline-none focus:border-rose-400 text-sm" />
+                                  </div>
+                                </div>
+                                <div className="w-px self-stretch bg-gray-200 dark:bg-gray-700"></div>
+                                <div className="px-4 py-3.5 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/60 dark:to-amber-900/40 flex flex-col items-center gap-1 min-w-[110px]">
+                                  <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 tracking-wide">مصاريف الشحن</span>
+                                  <div className="relative w-full">
+                                    <input type="number" value={shippingPrice === 0 ? "" : shippingPrice} onChange={(e) => setShippingPrice(parseFloat(e.target.value) || 0)} placeholder="0" className="w-full bg-white/70 dark:bg-black/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1 text-center font-black text-amber-600 dark:text-amber-400 outline-none focus:border-amber-400 text-sm" />
                                   </div>
                                 </div>
                               </div>
@@ -1094,14 +1213,16 @@ export default function MaintenancePage() {
                       ].map(({ label, cls }, i) => (
                         <th
                           key={i}
+                          ref={(el) => servicesResize.setThRef(el, i)}
                           className={`p-3 text-xs select-none relative group text-center ${cls || ""}`}
                         >
                           {label}
                           {i < 7 && (
                             <span
                               onMouseDown={(e) => servicesResize.startResize(e, i)}
+                              onDoubleClick={() => servicesResize.resetResize(i)}
                               className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover:opacity-100 bg-indigo-400/40 hover:bg-indigo-500/60 transition-opacity rounded-sm"
-                              title="اسحب لتغيير عرض العمود"
+                              title="اسحب لتغيير العرض، اضغط مرتين للعودة للحجم الافتراضي"
                             />
                           )}
                         </th>
